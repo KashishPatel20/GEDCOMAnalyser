@@ -73,11 +73,43 @@ def run_US18(families: dict[Family], output_file):
             print(f"ERROR: FAMILY: US17: Individual {fam1.FHusbId} married sister {fam1.FWifeId}")
             output_file.write(f"ERROR: FAMILY: US17: Individual {fam1.FHusbId} married sister {fam1.FWifeId}\n")
             
+# Dates before current date
+def run_US01(individuals: dict[Individual], families: dict[Family], output_file):
+    today = datetime.now()
+    for IKey in individuals:
+        indiv: Individual = individuals[IKey] 
+        if(indiv.IBirth > today):
+            print(f"ERROR: INDIVIDUAL: US01: Individual {indiv.IId} has Birth Date {indiv.IBirth} AFTER Current Date {today}")
+            output_file.write(f"ERROR: INDIVIDUAL: US01: Individual {indiv.IId} has Birth Date {indiv.IBirth} AFTER Current Date {today}\n")
+        if(indiv.IDeath != 'NA' and indiv.IDeath > today):
+            print(f"ERROR: INDIVIDUAL: US01: Individual {indiv.IId} has Death Date {indiv.IDeath} AFTER Current Date {today}")
+            output_file.write(f"ERROR: INDIVIDUAL: US01: Individual {indiv.IId} has Death Date {indiv.IDeath} AFTER Current Date {today}\n")
+            
+    for FKey in families:
+        fam: Family = families[FKey]
+        if (fam.FMar != 'NA' and fam.FMar > today):
+            print(f"ERROR: FAMILY: US01: Family {fam.FId} has Marriage Date {fam.FMar} AFTER Current Date {today}")
+            output_file.write(f"ERROR: FAMILY: US01: Family {fam.FId} has Marriage Date {fam.FMar} AFTER Current Date {today}\n")
+        if (fam.FDiv != 'NA' and fam.FDiv > today):
+            print(f"ERROR: FAMILY: US01: Family {fam.FId} has Divorce Date {fam.FMar} AFTER Current Date {today}")
+            output_file.write(f"ERROR: FAMILY: US01: Family {fam.FId} has Divorce Date {fam.FMar} AFTER Current Date {today}\n")
+
+# Birth before marriage
+def run_US02(individuals: dict[Individual], families: dict[Family], output_file):
+    for IKey in individuals:
+        indiv: Individual = individuals[IKey]
+        for FKey in families:
+            fam: Family = families[FKey]
+            if(indiv.IId in fam.FChildIds):
+                if(indiv.IBirth < fam.FMar):
+                    print(f"ANOMALY: US02: Individual {indiv.IId} has Birth Date {indiv.IBirth} BEFORE Marriage Date {fam.FMar}")
+                    output_file.write(f"ANOMALY: US02: Individual {indiv.IId} has Birth Date {indiv.IBirth} BEFORE Marriage Date {fam.FMar}\n")
 
 
 # Add completed user stories here to implement into the main running code
 def run_all_user_stories(individuals: dict[Individual], families: dict[Family], output_file):
-    
+    run_US01(individuals, families, output_file)
+    run_US02(individuals, families, output_file)
     run_US17(families, output_file)
     run_US18(families, output_file)
 
