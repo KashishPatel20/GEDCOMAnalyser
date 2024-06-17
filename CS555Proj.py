@@ -98,13 +98,12 @@ def run_US01(individuals: dict[Individual], families: dict[Family], output_file)
 def run_US02(individuals: dict[Individual], families: dict[Family], output_file):
     for IKey in individuals:
         indiv: Individual = individuals[IKey]
-        if(indiv.ISpouse != 'NA'):
-            for FKey in families:
-                fam: Family = families[FKey]
-                if(indiv.IId == fam.FHusbId or indiv.IId == fam.FWifeId):
-                    if(indiv.IBirth > fam.FMar):
-                        print(f"ERROR: US02: Individual {indiv.IId} has Birth Date {indiv.IBirth} AFTER Marriage Date {fam.FMar}")
-                        output_file.write(f"ERROR: US02: Individual {indiv.IId} has Birth Date {indiv.IBirth} AFTER Marriage Date {fam.FMar}\n")
+        for FKey in families:
+            fam: Family = families[FKey]
+            if(indiv.IId in fam.FChildIds):
+                if(indiv.IBirth < fam.FMar):
+                    print(f"ANOMALY: US02: Individual {indiv.IId} has Birth Date {indiv.IBirth} BEFORE Marriage Date {fam.FMar}")
+                    output_file.write(f"ANOMALY: US02: Individual {indiv.IId} has Birth Date {indiv.IBirth} BEFORE Marriage Date {fam.FMar}\n")
 
 
 # Add completed user stories here to implement into the main running code
