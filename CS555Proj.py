@@ -260,7 +260,7 @@ def parse_GEDCOM():
 
             index += 1
 
-    with open('output_GEDCOM.ged','w') as output_file:
+    with open('output_GEDCOM.txt','w') as output_file:
         indivTable = PrettyTable()
         indivTable.field_names = ["ID", "Name", "Gender", "Birthday", "Age", "Alive", "Death", "Child", "Spouse"]
 
@@ -286,5 +286,5 @@ def parse_GEDCOM():
 
         run_all_user_stories(individuals, families, output_file)
 
-
-parse_GEDCOM()
+if __name__ == '__main__':
+    parse_GEDCOM()
