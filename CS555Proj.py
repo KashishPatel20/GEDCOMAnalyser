@@ -15,7 +15,7 @@ class Individual:
         self.ISpouse: str = "NA"
 
     def is_alive(self) -> bool:
-        return (self.IDeath is not None)
+        return self.IDeath == 'NA'
     
     def get_age(self) -> int:
         if self.is_alive(): enddate = datetime.now()
@@ -105,13 +105,53 @@ def run_US02(individuals: dict[Individual], families: dict[Family], output_file)
                     print(f"ANOMALY: US02: Individual {indiv.IId} has Birth Date {indiv.IBirth} BEFORE Marriage Date {fam.FMar}")
                     output_file.write(f"ANOMALY: US02: Individual {indiv.IId} has Birth Date {indiv.IBirth} BEFORE Marriage Date {fam.FMar}\n")
 
+# Marriage after 14
+def run_US10(individuals: dict[Individual], families: dict[Family], output_file):
+    for key in families:
+        fam: Family = families[key]
+        husb: Individual = individuals[fam.FHusbId]
+        wife: Individual = individuals[fam.FWifeId]
+
+        # Check husband age
+        husb_age = fam.FMar.year - husb.IBirth.year
+        if fam.FMar.month < husb.IBirth.month: husb_age -= 1  # Birth month had not yet come
+        elif fam.FMar.month == husb.IBirth.month and fam.FMar.day < husb.IBirth.day: husb_age -= 1  # Bith day has not yet come
+
+        if husb_age < 14:
+            print(f"ANOMALY: US10: Individual {fam.FHusbId} was less than 14 years old when married")
+            output_file.write(f"ANOMALY: US10: Individual {fam.FHusbId} was less than 14 years old when married")
+
+        # Check wife age
+        wife_age = fam.FMar.year - wife.IBirth.year
+        if fam.FMar.month < wife.IBirth.month: wife_age -= 1  # Birth month had not yet come
+        elif fam.FMar.month == wife.IBirth.month and fam.FMar.day < wife.IBirth.day: wife_age -= 1  # Bith day has not yet come
+
+        if wife_age < 14:
+            print(f"ANOMALY: US10: Individual {fam.FWifeId} was less than 14 years old when married")
+            output_file.write(f"ANOMALY: US10: Individual {fam.FWifeId} was less than 14 years old when married")
+
+# List deceased
+def run_US29(individuals: dict[Individual], output_file):
+    deceasedTable = PrettyTable()
+    deceasedTable.field_names = ["ID", "Name", "Gender", "Birthday", "Age", "Death"]
+    for key in individuals:
+        indiv: Individual = individuals[key]
+        if not indiv.is_alive():
+            deceasedTable.add_row([indiv.IId, indiv.IName, indiv.IGen, indiv.IBirth.strftime("%Y-%m-%d"), indiv.get_age(), indiv.IDeath.strftime("%Y-%m-%d")])
+
+    print("\nUS29: Deceased List")
+    print(deceasedTable)
+    output_file.write("US29: Deceased List\n")
+    output_file.write(str(deceasedTable)+'\n')
 
 # Add completed user stories here to implement into the main running code
 def run_all_user_stories(individuals: dict[Individual], families: dict[Family], output_file):
     run_US01(individuals, families, output_file)
     run_US02(individuals, families, output_file)
+    run_US10(individuals, families, output_file)
     run_US17(families, output_file)
     run_US18(families, output_file)
+    run_US29(individuals, output_file)
 
 
 HANDLED_TAGS = ['INDI', 'NAME', 'SEX', 'BIRT', 'DEAT', 'FAMC', 'FAMS', 'FAM', 'MARR', 'HUSB', 'WIFE', 'CHIL', 'DIV', 'DATE']
@@ -229,7 +269,7 @@ def parse_GEDCOM():
             indivTable.add_row([indiv.IId, indiv.IName, indiv.IGen, indiv.IBirth.strftime("%Y-%m-%d"), indiv.get_age(), indiv.is_alive(), 
                                 indiv.IDeath if indiv.IDeath == 'NA' else indiv.IDeath.strftime("%Y-%m-%d"), indiv.IChild, indiv.ISpouse])
         print(indivTable)
-        output_file.write(str(indivTable)+'\n')
+        output_file.write(str(indivTable)+'\n\n')
 
         famTable = PrettyTable()
         famTable.field_names = ["ID", "Married", "Divorced", "Husband ID", "Husband Name", "Wife ID", "Wife Name", "Children"]
@@ -242,7 +282,7 @@ def parse_GEDCOM():
             famTable.add_row([fam.FId, fam.FMar.strftime("%Y-%m-%d"), fam.FDiv if fam.FDiv == 'NA' else fam.FDiv.strftime("%Y-%m-%d"), 
                             fam.FHusbId, husb.IName, fam.FWifeId, wife.IName, fam.FChildIds])
         print(famTable)
-        output_file.write(str(famTable)+'\n')
+        output_file.write(str(famTable)+'\n\n')
 
         run_all_user_stories(individuals, families, output_file)
 
