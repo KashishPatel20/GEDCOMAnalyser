@@ -35,7 +35,80 @@ class Family:
         self.FHusbId: str = "NA"
         self.FWifeId: str = "NA"
         self.FChildIds = []
+            
+# Dates before current date
+def run_US01(individuals: dict[Individual], families: dict[Family], output_file):
+    today = datetime.now()
+    for IKey in individuals:
+        indiv: Individual = individuals[IKey] 
+        if(indiv.IBirth > today):
+            print(f"ERROR: INDIVIDUAL: US01: Individual {indiv.IId} has Birth Date {indiv.IBirth} AFTER Current Date {today}")
+            output_file.write(f"ERROR: INDIVIDUAL: US01: Individual {indiv.IId} has Birth Date {indiv.IBirth} AFTER Current Date {today}\n")
+        if(indiv.IDeath != 'NA' and indiv.IDeath > today):
+            print(f"ERROR: INDIVIDUAL: US01: Individual {indiv.IId} has Death Date {indiv.IDeath} AFTER Current Date {today}")
+            output_file.write(f"ERROR: INDIVIDUAL: US01: Individual {indiv.IId} has Death Date {indiv.IDeath} AFTER Current Date {today}\n")
+            
+    for FKey in families:
+        fam: Family = families[FKey]
+        if (fam.FMar != 'NA' and fam.FMar > today):
+            print(f"ERROR: FAMILY: US01: Family {fam.FId} has Marriage Date {fam.FMar} AFTER Current Date {today}")
+            output_file.write(f"ERROR: FAMILY: US01: Family {fam.FId} has Marriage Date {fam.FMar} AFTER Current Date {today}\n")
+        if (fam.FDiv != 'NA' and fam.FDiv > today):
+            print(f"ERROR: FAMILY: US01: Family {fam.FId} has Divorce Date {fam.FMar} AFTER Current Date {today}")
+            output_file.write(f"ERROR: FAMILY: US01: Family {fam.FId} has Divorce Date {fam.FMar} AFTER Current Date {today}\n")
 
+# Birth before marriage
+def run_US02(individuals: dict[Individual], families: dict[Family], output_file):
+    for IKey in individuals:
+        indiv: Individual = individuals[IKey]
+        for FKey in families:
+            fam: Family = families[FKey]
+            if(indiv.IId in fam.FChildIds):
+                if(indiv.IBirth < fam.FMar):
+                    print(f"ANOMALY: US02: Individual {indiv.IId} has Birth Date {indiv.IBirth} BEFORE Marriage Date {fam.FMar}")
+                    output_file.write(f"ANOMALY: US02: Individual {indiv.IId} has Birth Date {indiv.IBirth} BEFORE Marriage Date {fam.FMar}\n")
+
+# Birth before death
+def run_US03(individuals: dict[Individual], output_file):
+    for IKey in individuals:
+        indiv: Individual = individuals[IKey]
+        if(indiv.IDeath != 'NA' and indiv.IBirth > indiv.IDeath):
+            print(f"ERROR: INDIVIDUAL: US03: Individual {indiv.IId} has Birth Date {indiv.IBirth} AFTER Death Date {indiv.IDeath}")
+            output_file.write(f"ERROR: INDIVIDUAL: US03: Individual {indiv.IId} has Birth Date {indiv.IBirth} AFTER Death Date {indiv.IBirth}\n")
+
+# Marriage before divorce, divorce after marriage
+def run_US04(families: dict[Family], output_file):
+    for FKey in families:
+        fam: Family = families[FKey]
+        if(fam.FDiv != 'NA' and fam.FMar > fam.FDiv):
+            print(f"ERROR: FAMILY: US04: Family {fam.FId} has Marriage Date {fam.FMar} AFTER Divorce Date {fam.FDiv}")
+            output_file.write(f"ERROR: FAMILY: US04: Family {fam.FId} has Marriage Date {fam.FMar} AFTER Divorce Date {fam.FDiv}\n") 
+
+# Marriage after 14
+def run_US10(individuals: dict[Individual], families: dict[Family], output_file):
+    for key in families:
+        fam: Family = families[key]
+        husb: Individual = individuals[fam.FHusbId]
+        wife: Individual = individuals[fam.FWifeId]
+
+        # Check husband age
+        husb_age = fam.FMar.year - husb.IBirth.year
+        if fam.FMar.month < husb.IBirth.month: husb_age -= 1  # Birth month had not yet come
+        elif fam.FMar.month == husb.IBirth.month and fam.FMar.day < husb.IBirth.day: husb_age -= 1  # Bith day has not yet come
+
+        if husb_age < 14:
+            print(f"ANOMALY: US10: Individual {fam.FHusbId} was less than 14 years old when married")
+            output_file.write(f"ANOMALY: US10: Individual {fam.FHusbId} was less than 14 years old when married")
+
+        # Check wife age
+        wife_age = fam.FMar.year - wife.IBirth.year
+        if fam.FMar.month < wife.IBirth.month: wife_age -= 1  # Birth month had not yet come
+        elif fam.FMar.month == wife.IBirth.month and fam.FMar.day < wife.IBirth.day: wife_age -= 1  # Bith day has not yet come
+
+        if wife_age < 14:
+            print(f"ANOMALY: US10: Individual {fam.FWifeId} was less than 14 years old when married")
+            output_file.write(f"ANOMALY: US10: Individual {fam.FWifeId} was less than 14 years old when married")
+            
 # No marriage to descendants
 def run_US17(families: dict[Family], output_file):
     key_pairs = itertools.combinations(families.keys(), 2)
@@ -72,63 +145,6 @@ def run_US18(families: dict[Family], output_file):
         elif fam2.FHusbId in fam1.FChildIds and fam2.FWifeId in fam1.FChildIds:
             print(f"ERROR: FAMILY: US17: Individual {fam1.FHusbId} married sister {fam1.FWifeId}")
             output_file.write(f"ERROR: FAMILY: US17: Individual {fam1.FHusbId} married sister {fam1.FWifeId}\n")
-            
-# Dates before current date
-def run_US01(individuals: dict[Individual], families: dict[Family], output_file):
-    today = datetime.now()
-    for IKey in individuals:
-        indiv: Individual = individuals[IKey] 
-        if(indiv.IBirth > today):
-            print(f"ERROR: INDIVIDUAL: US01: Individual {indiv.IId} has Birth Date {indiv.IBirth} AFTER Current Date {today}")
-            output_file.write(f"ERROR: INDIVIDUAL: US01: Individual {indiv.IId} has Birth Date {indiv.IBirth} AFTER Current Date {today}\n")
-        if(indiv.IDeath != 'NA' and indiv.IDeath > today):
-            print(f"ERROR: INDIVIDUAL: US01: Individual {indiv.IId} has Death Date {indiv.IDeath} AFTER Current Date {today}")
-            output_file.write(f"ERROR: INDIVIDUAL: US01: Individual {indiv.IId} has Death Date {indiv.IDeath} AFTER Current Date {today}\n")
-            
-    for FKey in families:
-        fam: Family = families[FKey]
-        if (fam.FMar != 'NA' and fam.FMar > today):
-            print(f"ERROR: FAMILY: US01: Family {fam.FId} has Marriage Date {fam.FMar} AFTER Current Date {today}")
-            output_file.write(f"ERROR: FAMILY: US01: Family {fam.FId} has Marriage Date {fam.FMar} AFTER Current Date {today}\n")
-        if (fam.FDiv != 'NA' and fam.FDiv > today):
-            print(f"ERROR: FAMILY: US01: Family {fam.FId} has Divorce Date {fam.FMar} AFTER Current Date {today}")
-            output_file.write(f"ERROR: FAMILY: US01: Family {fam.FId} has Divorce Date {fam.FMar} AFTER Current Date {today}\n")
-
-# Birth before marriage
-def run_US02(individuals: dict[Individual], families: dict[Family], output_file):
-    for IKey in individuals:
-        indiv: Individual = individuals[IKey]
-        for FKey in families:
-            fam: Family = families[FKey]
-            if(indiv.IId in fam.FChildIds):
-                if(indiv.IBirth < fam.FMar):
-                    print(f"ANOMALY: US02: Individual {indiv.IId} has Birth Date {indiv.IBirth} BEFORE Marriage Date {fam.FMar}")
-                    output_file.write(f"ANOMALY: US02: Individual {indiv.IId} has Birth Date {indiv.IBirth} BEFORE Marriage Date {fam.FMar}\n")
-
-# Marriage after 14
-def run_US10(individuals: dict[Individual], families: dict[Family], output_file):
-    for key in families:
-        fam: Family = families[key]
-        husb: Individual = individuals[fam.FHusbId]
-        wife: Individual = individuals[fam.FWifeId]
-
-        # Check husband age
-        husb_age = fam.FMar.year - husb.IBirth.year
-        if fam.FMar.month < husb.IBirth.month: husb_age -= 1  # Birth month had not yet come
-        elif fam.FMar.month == husb.IBirth.month and fam.FMar.day < husb.IBirth.day: husb_age -= 1  # Bith day has not yet come
-
-        if husb_age < 14:
-            print(f"ANOMALY: US10: Individual {fam.FHusbId} was less than 14 years old when married")
-            output_file.write(f"ANOMALY: US10: Individual {fam.FHusbId} was less than 14 years old when married")
-
-        # Check wife age
-        wife_age = fam.FMar.year - wife.IBirth.year
-        if fam.FMar.month < wife.IBirth.month: wife_age -= 1  # Birth month had not yet come
-        elif fam.FMar.month == wife.IBirth.month and fam.FMar.day < wife.IBirth.day: wife_age -= 1  # Bith day has not yet come
-
-        if wife_age < 14:
-            print(f"ANOMALY: US10: Individual {fam.FWifeId} was less than 14 years old when married")
-            output_file.write(f"ANOMALY: US10: Individual {fam.FWifeId} was less than 14 years old when married")
 
 # List deceased
 def run_US29(individuals: dict[Individual], output_file):
@@ -148,6 +164,8 @@ def run_US29(individuals: dict[Individual], output_file):
 def run_all_user_stories(individuals: dict[Individual], families: dict[Family], output_file):
     run_US01(individuals, families, output_file)
     run_US02(individuals, families, output_file)
+    run_US03(individuals, output_file)
+    run_US04(families, output_file)
     run_US10(individuals, families, output_file)
     run_US17(families, output_file)
     run_US18(families, output_file)
