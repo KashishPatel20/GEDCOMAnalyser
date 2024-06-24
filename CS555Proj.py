@@ -83,6 +83,18 @@ def run_US04(families: dict[Family], output_file):
         if(fam.FDiv != 'NA' and fam.FMar > fam.FDiv):
             print(f"ERROR: FAMILY: US04: Family {fam.FId} has Marriage Date {fam.FMar} AFTER Divorce Date {fam.FDiv}")
             output_file.write(f"ERROR: FAMILY: US04: Family {fam.FId} has Marriage Date {fam.FMar} AFTER Divorce Date {fam.FDiv}\n") 
+    
+# Marriage before death    
+def run_US05(individuals: dict[Individual], families: dict[Family], output_file):
+    for IKey in individuals:
+        indiv: Individual = individuals[IKey]
+        if(indiv.ISpouse != 'NA'):
+            for FKey in families:
+                fam: Family = families[FKey]
+                if(indiv.IId == fam.FHusbId or indiv.IId == fam.FWifeId):
+                    if(indiv.IDeath != 'NA' and fam.FMar > indiv.IDeath):
+                        print(f"ANOMALY: US05: Individual {indiv.IId} has Marriage Date {fam.FMar} AFTER Death Date {indiv.IDeath}")
+                        output_file.write(f"ANOMALY: US05: Individual {indiv.IId} has Marriage Date {fam.FMar} AFTER Death Date {indiv.IDeath}\n")
 
 # Marriage after 14
 def run_US10(individuals: dict[Individual], families: dict[Family], output_file):
@@ -166,6 +178,7 @@ def run_all_user_stories(individuals: dict[Individual], families: dict[Family], 
     run_US02(individuals, families, output_file)
     run_US03(individuals, output_file)
     run_US04(families, output_file)
+    run_US05(individuals, families, output_file)
     run_US10(individuals, families, output_file)
     run_US17(families, output_file)
     run_US18(families, output_file)
