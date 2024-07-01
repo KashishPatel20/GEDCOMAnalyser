@@ -96,6 +96,52 @@ def run_US05(individuals: dict[Individual], families: dict[Family], output_file)
                         print(f"ANOMALY: US05: Individual {indiv.IId} has Marriage Date {fam.FMar} AFTER Death Date {indiv.IDeath}")
                         output_file.write(f"ANOMALY: US05: Individual {indiv.IId} has Marriage Date {fam.FMar} AFTER Death Date {indiv.IDeath}\n")
 
+# Birth before marriage of parents and not more than 9 months after divorce
+def run_US08(individuals: dict[str, Individual], families: dict[str, Family], output_file):
+    for fam_id in families:
+        family = families[fam_id]
+        
+        for child_id in family.FChildIds:
+            if child_id in individuals:
+                child = individuals[child_id]
+                
+                # Check if child is born before the marriage of parents
+                if family.FMar != "NA" and child.IBirth < family.FMar:
+                    print(f"ERROR: FAMILY: US08: Child {child.IId} ({child.IBirth}) born before parents' marriage ({family.FMar})")
+                    output_file.write(f"ERROR: FAMILY: US08: Child {child.IId} ({child.IBirth}) born before parents' marriage ({family.FMar})\n")
+                
+                # Check if child is born more than 9 months after the divorce of parents
+                if family.FDiv != "NA":
+                    divorce_deadline = family.FDiv + timedelta(days=9*30)  # Approximate 9 months after divorce
+                    if child.IBirth > divorce_deadline:
+                        print(f"ERROR: FAMILY: US08: Child {child.IId} ({child.IBirth}) born more than 9 months after parents' divorce ({family.FDiv})")
+                        output_file.write(f"ERROR: FAMILY: US08: Child {child.IId} ({child.IBirth}) born more than 9 months after parents' divorce ({family.FDiv})\n")
+
+
+def run_US09(individuals: dict[str, Individual], families: dict[str, Family], output_file):
+    for fam_id in families:
+        family = families[fam_id]
+        if family.FHusbId != "NA" and family.FWifeId != "NA":
+            husband = individuals[family.FHusbId]
+            wife = individuals[family.FWifeId]
+            
+            for child_id in family.FChildIds:
+                if child_id in individuals:
+                    child = individuals[child_id]
+                    
+                    # Check if child is born after the mother's death
+                    if wife.IDeath != "NA" and child.IBirth > wife.IDeath:
+                        print(f"ERROR: FAMILY: US09: Child {child.IId} ({child.IBirth}) born after mother's ({wife.IId}) death ({wife.IDeath})")
+                        output_file.write(f"ERROR: FAMILY: US09: Child {child.IId} ({child.IBirth}) born after mother's ({wife.IId}) death ({wife.IDeath})\n")
+                    
+                    # Check if child is born more than 9 months after the father's death
+                    if husband.IDeath != "NA":
+                        father_deadline = husband.IDeath + timedelta(days=9*30)  # Approximate 9 months after death
+                        if child.IBirth > father_deadline:
+                            print(f"ERROR: FAMILY: US09: Child {child.IId} ({child.IBirth}) born more than 9 months after father's ({husband.IId}) death ({husband.IDeath})")
+                            output_file.write(f"ERROR: FAMILY: US09: Child {child.IId} ({child.IBirth}) born more than 9 months after father's ({husband.IId}) death ({husband.IDeath})\n")
+
+
 # Marriage after 14
 def run_US10(individuals: dict[Individual], families: dict[Family], output_file):
     for key in families:
@@ -200,6 +246,8 @@ def run_all_user_stories(individuals: dict[Individual], families: dict[Family], 
     run_US03(individuals, output_file)
     run_US04(families, output_file)
     run_US05(individuals, families, output_file)
+    run_US08(individuals, families, output_file)
+    run_US09(individuals, families, output_file)
     run_US10(individuals, families, output_file)
     run_US15(families, output_file)
     run_US17(families, output_file)
