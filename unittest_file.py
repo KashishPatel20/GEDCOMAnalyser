@@ -5,6 +5,13 @@ from datetime import datetime
 
 from CS555Proj import Individual, Family
 
+# Fewer than 15 siblings
+def run_US15(families: dict[Family]):
+    for key in families:
+        fam: Family = families[key]
+        if len(fam.FChildIds) >= 15:
+            return False
+    return True
 
 # No marriage to descendants
 def run_US17(families: dict[Family]):
@@ -40,6 +47,83 @@ def run_US18(families: dict[Family]):
         
     return True
 
+# Unique ids
+def run_US22(lines: list[str]):
+    individuals = {}
+    families = {}
+
+    individual = None
+    family = None
+    for line in lines:
+        split_content = line.split()
+
+        tag = split_content[2]
+        content = split_content[1]
+    
+        if tag == 'INDI':
+            if individual is not None: individuals[individual.IId] = individual
+            id = content[1:-1]
+
+            if id in individuals.keys(): # Duplicate individual key!
+                return False
+            individual = Individual(id)
+        elif tag == 'FAM':
+            if family is not None: families[family.FId] = family
+            id = content[1:-1]
+
+            if id in families.keys(): # Duplicate family key!
+                return False
+            family = Family(id)
+
+    return True
+
+# Unique names in families
+def run_US25(individuals: dict[Individual], families: dict[Family]):
+    for key in families:
+        fam: Family = families[key]
+        for child1_key, child2_key in itertools.combinations(fam.FChildIds, 2):
+            if not child1_key == child2_key:
+                child1: Individual = individuals[child1_key]
+                child2: Individual = individuals[child2_key]
+
+                if child1.IName == child2.IName and child1.IBirth.date() == child2.IBirth.date():
+                    return False
+    return True
+
+
+class Test_US15(unittest.TestCase):
+
+    def test_less_than_15_siblings(self):
+        fam1 = Family('F1')
+        fam1.FChildIds = ['I1', 'I2', 'I3']
+
+        families = {fam1.FId: fam1}
+        self.assertTrue(run_US15(families), "Identified too many siblings when there were less than 15")
+
+    def test_15_siblings(self):
+        fam1 = Family('F1')
+        fam1.FChildIds = ['I1', 'I2', 'I3']
+
+        fam2 = Family('F2')
+        fam2.FChildIds = ['I1', 'I2', 'I3', 'I4', 'I5',
+                          'I6', 'I7', 'I8', 'I9', 'I10',
+                          'I11', 'I12', 'I13', 'I14', 'I15']
+
+        families = {fam1.FId: fam1, fam2.FId: fam2}
+        self.assertFalse(run_US15(families), "Did not identify that there were 15 siblings")
+
+    def test_more_than_15_siblings(self):
+        fam1 = Family('F1')
+        fam1.FChildIds = ['I1', 'I2', 'I3', 'I4', 'I5',
+                          'I6', 'I7', 'I8', 'I9', 'I10',
+                          'I11', 'I12', 'I13', 'I14', 'I15',
+                          'I16', 'I17', 'I18', 'I19', 'I20']
+        
+        fam2 = Family('F2')
+        fam2.FChildIds = ['I1', 'I2', 'I3']
+
+        families = {fam1.FId: fam1, fam2.FId: fam2}
+        self.assertFalse(run_US15(families), "Did not identify that there were more than 15 siblings")
 
 class Test_US17(unittest.TestCase):
 
@@ -150,7 +234,152 @@ class Test_US18(unittest.TestCase):
         families = {fam1.FId: fam1, fam2.FId: fam2}
         self.assertFalse(run_US18(families), "Missed marriage between siblings from family 2")
 
+class Test_US22(unittest.TestCase):
+
+    def test_no_duplicates(self):
+        lines = ["0 @I1@ INDI",
+                 "0 @I2@ INDI",
+                 "0 @I3@ INDI",
+                 "0 @F1@ FAM",
+                 "0 @F2@ FAM",
+                 "0 @F3@ FAM",]
+
+        self.assertTrue(run_US22(lines), "Identified duplicate id when there was none")
+
+    def test_duplicate_individual_id(self):
+        lines = ["0 @I1@ INDI",
+                 "0 @I2@ INDI",
+                 "0 @I1@ INDI",
+                 "0 @F1@ FAM",
+                 "0 @F2@ FAM",
+                 "0 @F3@ FAM",]
+
+        self.assertFalse(run_US22(lines), "Missed duplicate individual id")
+
+    def test_duplicate_family_id(self):
+        lines = ["0 @I1@ INDI",
+                 "0 @I2@ INDI",
+                 "0 @I3@ INDI",
+                 "0 @F1@ FAM",
+                 "0 @F2@ FAM",
+                 "0 @F2@ FAM",]
+
+        self.assertFalse(run_US22(lines), "Missed duplicate family id")
+
+class Test_US25(unittest.TestCase):
+
+    def test_no_duplicate_names(self):
+        fam1 = Family('F1')
+        fam1.FChildIds = ['I1', 'I2', 'I3']
+
+        families = {fam1.FId: fam1}
+
+        indiv1 = Individual('I1')
+        indiv1.IName = 'Bradley Abelman'
+        indiv1.IBirth = datetime.strptime("11 OCT 2002", "%d %b %Y")
+
+        indiv2 = Individual('I2')
+        indiv2.IName = 'Andrew Abelman'
+        indiv2.IBirth = datetime.strptime("13 NOV 2008", "%d %b %Y")
+
+        indiv3 = Individual('I3')
+        indiv3.IName = 'Fredric Abelman'
+        indiv3.IBirth = datetime.strptime("22 DEC 1972", "%d %b %Y")
+
+        individuals = {indiv1.IId: indiv1, indiv2.IId: indiv2, indiv3.IId: indiv3}
+
+        self.assertTrue(run_US25(individuals, families), "Identified duplicate siblings when there were none")
+
+    def test_duplicate_names_but_not_birth(self):
+        fam1 = Family('F1')
+        fam1.FChildIds = ['I1', 'I2', 'I3']
+
+        families = {fam1.FId: fam1}
+
+        indiv1 = Individual('I1')
+        indiv1.IName = 'Bradley Abelman'
+        indiv1.IBirth = datetime.strptime("11 OCT 2002", "%d %b %Y")
+
+        indiv2 = Individual('I2')
+        indiv2.IName = 'Bradley Abelman'
+        indiv2.IBirth = datetime.strptime("13 NOV 2008", "%d %b %Y")
+
+        indiv3 = Individual('I3')
+        indiv3.IName = 'Fredric Abelman'
+        indiv3.IBirth = datetime.strptime("22 DEC 1972", "%d %b %Y")
+
+        individuals = {indiv1.IId: indiv1, indiv2.IId: indiv2, indiv3.IId: indiv3}
+
+        self.assertTrue(run_US25(individuals, families), "Identified duplicate siblings when there was no duplicate birthday")
+
+    def test_duplicate_birth_but_not_names(self):
+        fam1 = Family('F1')
+        fam1.FChildIds = ['I1', 'I2', 'I3']
+
+        families = {fam1.FId: fam1}
+
+        indiv1 = Individual('I1')
+        indiv1.IName = 'Bradley Abelman'
+        indiv1.IBirth = datetime.strptime("11 OCT 2002", "%d %b %Y")
+
+        indiv2 = Individual('I2')
+        indiv2.IName = 'Andrew Abelman'
+        indiv2.IBirth = datetime.strptime("11 OCT 2002", "%d %b %Y")
+
+        indiv3 = Individual('I3')
+        indiv3.IName = 'Fredric Abelman'
+        indiv3.IBirth = datetime.strptime("22 DEC 1972", "%d %b %Y")
+
+        individuals = {indiv1.IId: indiv1, indiv2.IId: indiv2, indiv3.IId: indiv3}
+
+        self.assertTrue(run_US25(individuals, families), "Identified duplicate siblings when there were no duplicate name")
+
+    def test_duplicate_names_and_birth(self):
+        fam1 = Family('F1')
+        fam1.FChildIds = ['I1', 'I2', 'I3']
+
+        families = {fam1.FId: fam1}
+
+        indiv1 = Individual('I1')
+        indiv1.IName = 'Bradley Abelman'
+        indiv1.IBirth = datetime.strptime("11 OCT 2002", "%d %b %Y")
+
+        indiv2 = Individual('I2')
+        indiv2.IName = 'Bradley Abelman'
+        indiv2.IBirth = datetime.strptime("11 OCT 2002", "%d %b %Y")
+
+        indiv3 = Individual('I3')
+        indiv3.IName = 'Fredric Abeman'
+        indiv3.IBirth = datetime.strptime("22 DEC 1972", "%d %b %Y")
+
+        individuals = {indiv1.IId: indiv1, indiv2.IId: indiv2, indiv3.IId: indiv3}
+
+        self.assertFalse(run_US25(individuals, families), "Missed duplicate siblings")
+
+
 if __name__ == "__main__":
+    
+    fam1 = Family('F1')
+    fam1.FChildIds = ['I1', 'I2', 'I3']
+
+    families = {fam1.FId: fam1}
+
+    indiv1 = Individual('I1')
+    indiv1.IName = 'Bradley Abelman'
+    indiv1.IBirth = datetime.strptime("11 OCT 2002", "%d %b %Y")
+
+    indiv2 = Individual('I2')
+    indiv2.IName = 'Bradley Abelman'
+    indiv2.IBirth = datetime.strptime("11 OCT 2002", "%d %b %Y")
+
+    indiv3 = Individual('I3')
+    indiv3.IName = 'Fredric Abeman'
+    indiv3.IBirth = datetime.strptime("22 DEC 1972", "%d %b %Y")
+
+    individuals = {indiv1.IId: indiv1, indiv2.IId: indiv2, indiv3.IId: indiv3}
+
+    if not run_US25(individuals, families): print("Missed duplicate siblings")
+
     with open("test_results.txt", "w") as f:
         runner = unittest.TextTestRunner(f)
         unittest.main(testRunner=runner)

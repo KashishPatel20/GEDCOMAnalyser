@@ -120,7 +120,15 @@ def run_US10(individuals: dict[Individual], families: dict[Family], output_file)
         if wife_age < 14:
             print(f"ANOMALY: US10: Individual {fam.FWifeId} was less than 14 years old when married")
             output_file.write(f"ANOMALY: US10: Individual {fam.FWifeId} was less than 14 years old when married")
-            
+
+# Fewer than 15 siblings
+def run_US15(families: dict[Family], output_file):
+    for key in families:
+        fam: Family = families[key]
+        if len(fam.FChildIds) >= 15:
+            print(f"ANOMALY: FAMILY: US15: Family {key} has 15 or more children")
+            output_file.write(f"ANOMALY: FAMILY: US15: Family {key} has 15 or more children")
+
 # No marriage to descendants
 def run_US17(families: dict[Family], output_file):
     key_pairs = itertools.combinations(families.keys(), 2)
@@ -158,6 +166,19 @@ def run_US18(families: dict[Family], output_file):
             print(f"ERROR: FAMILY: US17: Individual {fam1.FHusbId} married sister {fam1.FWifeId}")
             output_file.write(f"ERROR: FAMILY: US17: Individual {fam1.FHusbId} married sister {fam1.FWifeId}\n")
 
+# Unique names in families
+def run_US25(individuals: dict[Individual], families: dict[Family], output_file):
+    for key in families:
+        fam: Family = families[key]
+        for child1_key, child2_key in itertools.combinations(fam.FChildIds, 2):
+            if not child1_key == child2_key:
+                child1: Individual = individuals[child1_key]
+                child2: Individual = individuals[child2_key]
+
+                if child1.IName == child2.IName and child1.IBirth.date() == child2.IBirth.date():
+                    print(f"ERROR: FAMILY: US25: Individuals {child1_key} and {child2_key} from the same family share a name \"{child1.IName}\" and birthday")
+                    output_file.write(f"ERROR: FAMILY: US25: Individuals {child1_key} and {child2_key} from the same family share a name \"{child1.IName}\" and birthday")
+
 # List deceased
 def run_US29(individuals: dict[Individual], output_file):
     deceasedTable = PrettyTable()
@@ -180,8 +201,10 @@ def run_all_user_stories(individuals: dict[Individual], families: dict[Family], 
     run_US04(families, output_file)
     run_US05(individuals, families, output_file)
     run_US10(individuals, families, output_file)
+    run_US15(families, output_file)
     run_US17(families, output_file)
     run_US18(families, output_file)
+    run_US25(individuals, families, output_file)
     run_US29(individuals, output_file)
 
 
@@ -207,91 +230,100 @@ def parse_GEDCOM():
     individuals = {}
     families = {}
 
-    path = Path(__file__).with_name('babelman_GEDCOM.ged')
-    with path.open('r') as file:
-        individual = None
-        family = None
-
-        lines = file.readlines()
-        index = 0
-        while index < len(lines):
-            line = lines[index].rstrip()
-            
-            data = parse_line(line)
-            if data is None: 
-                index += 1
-                continue
-
-            tag, content = data
-
-            # Handle each accepted tag
-            if tag == 'INDI':
-                if individual is not None: individuals[individual.IId] = individual
-                id = content[1:-1]
-                individual = Individual(id)
-            elif tag == 'FAM':
-                if family is not None: families[family.FId] = family
-                id = content[1:-1]
-                family = Family(id)
-            elif tag == 'NAME':
-                individual.IName = content
-            elif tag == 'SEX':
-                individual.IGen = content
-            elif tag == 'BIRT':
-                index += 1
-                line = lines[index].rstrip()
-                data = parse_line(line)
-                if data is None or not data[0] == 'DATE':
-                    index += 1
-                    continue
-                date = datetime.strptime(data[1], "%d %b %Y")
-                individual.IBirth = date
-            elif tag == 'DEAT':
-                index += 1
-                line = lines[index].rstrip()
-                data = parse_line(line)
-                if data is None or not data[0] == 'DATE':
-                    index += 1
-                    continue
-                date = datetime.strptime(data[1], "%d %b %Y")
-                individual.IDeath = date
-            elif tag == 'FAMC':
-                id = content[1:-1]
-                individual.IChild = id
-            elif tag == 'FAMS':
-                id = content[1:-1]
-                individual.ISpouse = id
-            elif tag == 'MARR':
-                index += 1
-                line = lines[index].rstrip()
-                data = parse_line(line)
-                if data is None or not data[0] == 'DATE':
-                    index += 1
-                    continue
-                date = datetime.strptime(data[1], "%d %b %Y")
-                family.FMar = date
-            elif tag == 'DIV':
-                index += 1
-                line = lines[index].rstrip()
-                data = parse_line(line)
-                if data is None or not data[0] == 'DATE':
-                    index += 1
-                    continue
-                date = datetime.strptime(data[1], "%d %b %Y")
-                family.FDiv = date
-            elif tag == 'HUSB':
-                id = content[1:-1]
-                family.FHusbId = id
-            elif tag == 'WIFE':
-                id = content[1:-1]
-                family.FWifeId = id
-            elif tag == 'CHIL':
-                id = content[1:-1]
-                family.FChildIds.append(id)
-
-            index += 1
-
     with open('output_GEDCOM.txt','w') as output_file:
+        path = Path(__file__).with_name('babelman_GEDCOM.ged')
+        with path.open('r') as file:
+
+            individual = None
+            family = None
+
+            lines = file.readlines()
+            index = 0
+            while index < len(lines):
+                line = lines[index].rstrip()
+                
+                data = parse_line(line)
+                if data is None: 
+                    index += 1
+                    continue
+
+                tag, content = data
+
+                # Handle each accepted tag
+                if tag == 'INDI':
+                    if individual is not None: individuals[individual.IId] = individual
+                    id = content[1:-1]
+
+                    if id in individuals.keys(): # US22 Check unique tags
+                        print(f"ERROR: INDIVIDUAL: US22: Id {id} is not unique!  Used for multiple individuals!")
+                        output_file.write(f"ERROR: INDIVIDUAL: US22: Id {id} is not unique!  Used for multiple individuals!")
+                    individual = Individual(id)
+                elif tag == 'FAM':
+                    if family is not None: families[family.FId] = family
+                    id = content[1:-1]
+
+                    if id in families.keys(): # US22 Check unique tags
+                        print(f"ERROR: FAMILY: US22: Id {id} is not unique!  Used for multiple families!")
+                        output_file.write(f"ERROR: FAMILY: US22: Id {id} is not unique!  Used for multiple families!")
+                    family = Family(id)
+                elif tag == 'NAME':
+                    individual.IName = content
+                elif tag == 'SEX':
+                    individual.IGen = content
+                elif tag == 'BIRT':
+                    index += 1
+                    line = lines[index].rstrip()
+                    data = parse_line(line)
+                    if data is None or not data[0] == 'DATE':
+                        index += 1
+                        continue
+                    date = datetime.strptime(data[1], "%d %b %Y")
+                    individual.IBirth = date
+                elif tag == 'DEAT':
+                    index += 1
+                    line = lines[index].rstrip()
+                    data = parse_line(line)
+                    if data is None or not data[0] == 'DATE':
+                        index += 1
+                        continue
+                    date = datetime.strptime(data[1], "%d %b %Y")
+                    individual.IDeath = date
+                elif tag == 'FAMC':
+                    id = content[1:-1]
+                    individual.IChild = id
+                elif tag == 'FAMS':
+                    id = content[1:-1]
+                    individual.ISpouse = id
+                elif tag == 'MARR':
+                    index += 1
+                    line = lines[index].rstrip()
+                    data = parse_line(line)
+                    if data is None or not data[0] == 'DATE':
+                        index += 1
+                        continue
+                    date = datetime.strptime(data[1], "%d %b %Y")
+                    family.FMar = date
+                elif tag == 'DIV':
+                    index += 1
+                    line = lines[index].rstrip()
+                    data = parse_line(line)
+                    if data is None or not data[0] == 'DATE':
+                        index += 1
+                        continue
+                    date = datetime.strptime(data[1], "%d %b %Y")
+                    family.FDiv = date
+                elif tag == 'HUSB':
+                    id = content[1:-1]
+                    family.FHusbId = id
+                elif tag == 'WIFE':
+                    id = content[1:-1]
+                    family.FWifeId = id
+                elif tag == 'CHIL':
+                    id = content[1:-1]
+                    family.FChildIds.append(id)
+
+                index += 1
+
         indivTable = PrettyTable()
         indivTable.field_names = ["ID", "Name", "Gender", "Birthday", "Age", "Alive", "Death", "Child", "Spouse"]
 
