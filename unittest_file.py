@@ -13,6 +13,22 @@ def run_US15(families: dict[Family]):
             return False
     return True
 
+# All male members of a family should have the same last name
+def run_US16(individuals: dict[Individual], families: dict[Family]):
+    for key in families:
+        fam: Family = families[key]
+        last_name = None
+        
+        if fam.FHusbId:
+            husband = individuals[fam.FHusbId]
+            last_name = husband.IName.split()[-1]
+
+        for child_id in fam.FChildIds:
+            child = individuals[child_id]
+            if child.ISex == 'M' and child.IName.split()[-1] != last_name:
+                return False
+    return True
+
 # No marriage to descendants
 def run_US17(families: dict[Family]):
     key_pairs = itertools.combinations(families.keys(), 2)
@@ -90,6 +106,17 @@ def run_US25(individuals: dict[Individual], families: dict[Family]):
                     return False
     return True
 
+# List all people in a GEDCOM file who were born in the last 30 days
+def run_US35(individuals: dict[Individual]):
+    recent_births = []
+    now = datetime.now()
+
+    for key in individuals:
+        indiv: Individual = individuals[key]
+        if (now - indiv.IBirth).days <= 30:
+            recent_births.append(indiv)
+
+    return recent_births
 
 class Test_US15(unittest.TestCase):
 
@@ -124,6 +151,51 @@ class Test_US15(unittest.TestCase):
 
         families = {fam1.FId: fam1, fam2.FId: fam2}
         self.assertFalse(run_US15(families), "Did not identify that there were more than 15 siblings")
+
+class Test_US16(unittest.TestCase):
+
+    def test_same_last_name(self):
+        ind1 = Individual('I1')
+        ind1.IName = "John Doe"
+        ind1.ISex = 'M'
+        ind2 = Individual('I2')
+        ind2.IName = "Jane Doe"
+        ind2.ISex = 'F'
+        ind3 = Individual('I3')
+        ind3.IName = "Johnny Doe"
+        ind3.ISex = 'M'
+
+        fam1 = Family('F1')
+        fam1.FHusbId = ind1.IId
+        fam1.FWifeId = ind2.IId
+        fam1.FChildIds = [ind3.IId]
+
+        individuals = {ind1.IId: ind1, ind2.IId: ind2, ind3.IId: ind3}
+        families = {fam1.FId: fam1}
+
+        self.assertTrue(run_US16(individuals, families), "Identified different last names when they were the same")
+
+    def test_different_last_name(self):
+        ind1 = Individual('I1')
+        ind1.IName = "John Doe"
+        ind1.ISex = 'M'
+        ind2 = Individual('I2')
+        ind2.IName = "Jane Doe"
+        ind2.ISex = 'F'
+        ind3 = Individual('I3')
+        ind3.IName = "Johnny Smith"
+        ind3.ISex = 'M'
+
+        fam1 = Family('F1')
+        fam1.FHusbId = ind1.IId
+        fam1.FWifeId = ind2.IId
+        fam1.FChildIds = [ind3.IId]
+
+        individuals = {ind1.IId: ind1, ind2.IId: ind2, ind3.IId: ind3}
+        families = {fam1.FId: fam1}
+
+        self.assertFalse(run_US16(individuals, families), "Did not identify different last names for male family members")
+
 
 class Test_US17(unittest.TestCase):
 
@@ -265,6 +337,28 @@ class Test_US22(unittest.TestCase):
                  "0 @F2@ FAM",]
 
         self.assertFalse(run_US22(lines), "Missed duplicate family id")
+
+class Test_US35(unittest.TestCase):
+
+    def test_recent_births(self):
+        now = datetime.now()
+        ind1 = Individual('I1')
+        ind1.IName = "John Doe"
+        ind1.IBirth = now - timedelta(days=10)
+        ind2 = Individual('I2')
+        ind2.IName = "Jane Doe"
+        ind2.IBirth = now - timedelta(days=40)
+        ind3 = Individual('I3')
+        ind3.IName = "Johnny Doe"
+        ind3.IBirth = now - timedelta(days=20)
+        
+        individuals = {ind1.IId: ind1, ind2.IId: ind2, ind3.IId: ind3}
+
+        recent_births = run_US35(individuals)
+        self.assertEqual(len(recent_births), 2, "Identified incorrect number of recent births")
+        self.assertIn(ind1, recent_births, "Missed a recent birth")
+        self.assertIn(ind3, recent_births, "Missed a recent birth")
+        self.assertNotIn(ind2, recent_births, "Included a non-recent birth")
 
 class Test_US25(unittest.TestCase):
 
