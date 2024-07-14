@@ -2,7 +2,7 @@ import itertools
 
 from pathlib import Path
 from prettytable import PrettyTable
-from datetime import datetime
+from datetime import datetime,timedelta
 
 class Individual:
     def __init__(self, id: str):
