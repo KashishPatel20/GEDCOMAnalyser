@@ -29,6 +29,36 @@ def run_US16(individuals: dict[Individual], families: dict[Family]):
                 return False
     return True
 
+# Birth before marriage of parents
+def run_US08(individuals: dict[Individual], families: dict[Family]):
+    for key in families:
+        fam: Family = families[key]
+        marriage_date = fam.FMarriage
+        divorce_date = fam.FDivorce if fam.FDivorce else None
+
+        for child_id in fam.FChildIds:
+            child = individuals[child_id]
+            if marriage_date and child.IBirth < marriage_date:
+                return False
+            if divorce_date and child.IBirth > divorce_date + timedelta(days=9*30):
+                return False
+    return True
+
+# Birth before death of parents
+def run_US09(individuals: dict[Individual], families: dict[Family]):
+    for key in families:
+        fam: Family = families[key]
+        father_death = individuals[fam.FHusbId].IDeath if fam.FHusbId and fam.FHusbId in individuals else None
+        mother_death = individuals[fam.FWifeId].IDeath if fam.FWifeId and fam.FWifeId in individuals else None
+
+        for child_id in fam.FChildIds:
+            child = individuals[child_id]
+            if mother_death and child.IBirth > mother_death:
+                return False
+            if father_death and child.IBirth > father_death + timedelta(days=9*30):
+                return False
+    return True
+    
 # No marriage to descendants
 def run_US17(families: dict[Family]):
     key_pairs = itertools.combinations(families.keys(), 2)
@@ -195,6 +225,103 @@ class Test_US16(unittest.TestCase):
         families = {fam1.FId: fam1}
 
         self.assertFalse(run_US16(individuals, families), "Did not identify different last names for male family members")
+
+class Test_US08(unittest.TestCase):
+
+    def test_birth_before_marriage(self):
+        ind1 = Individual('I1')
+        ind1.IName = "John Doe"
+        ind1.IBirth = datetime.strptime("10 JAN 1980", "%d %b %Y")
+
+        ind2 = Individual('I2')
+        ind2.IName = "Jane Smith"
+        ind2.IBirth = datetime.strptime("10 JAN 1980", "%d %b %Y")
+
+        ind3 = Individual('I3')
+        ind3.IName = "Johnny Doe"
+        ind3.IBirth = datetime.strptime("10 JUN 1979", "%d %b %Y")
+
+        fam1 = Family('F1')
+        fam1.FHusbId = 'I1'
+        fam1.FWifeId = 'I2'
+        fam1.FMarriage = datetime.strptime("01 JAN 1980", "%d %b %Y")
+        fam1.FChildIds = ['I3']
+
+        individuals = {ind1.IId: ind1, ind2.IId: ind2, ind3.IId: ind3}
+        families = {fam1.FId: fam1}
+
+        self.assertFalse(run_US08(individuals, families), "Missed birth before marriage")
+
+    def test_birth_after_divorce(self):
+        ind1 = Individual('I1')
+        ind1.IName = "John Doe"
+        ind1.IBirth = datetime.strptime("10 JAN 1980", "%d %b %Y")
+
+        ind2 = Individual('I2')
+        ind2.IName = "Jane Smith"
+        ind2.IBirth = datetime.strptime("10 JAN 1980", "%d %b %Y")
+
+        ind3 = Individual('I3')
+        ind3.IName = "Johnny Doe"
+        ind3.IBirth = datetime.strptime("10 JUN 1981", "%d %b %Y")
+
+        fam1 = Family('F1')
+        fam1.FHusbId = 'I1'
+        fam1.FWifeId = 'I2'
+        fam1.FMarriage = datetime.strptime("01 JAN 1980", "%d %b %Y")
+        fam1.FDivorce = datetime.strptime("01 JAN 1980", "%d %b %Y")
+        fam1.FChildIds = ['I3']
+
+        individuals = {ind1.IId: ind1, ind2.IId: ind2, ind3.IId: ind3}
+        families = {fam1.FId: fam1}
+
+        self.assertFalse(run_US08(individuals, families), "Missed birth after divorce")
+
+class Test_US09(unittest.TestCase):
+
+    def test_birth_after_father_death(self):
+        ind1 = Individual('I1')
+        ind1.IName = "John Doe"
+        ind1.IDeath = datetime.strptime("10 JAN 1980", "%d %b %Y")
+
+        ind2 = Individual('I2')
+        ind2.IName = "Jane Smith"
+
+        ind3 = Individual('I3')
+        ind3.IName = "Johnny Doe"
+        ind3.IBirth = datetime.strptime("10 JUN 1981", "%d %b %Y")
+
+        fam1 = Family('F1')
+        fam1.FHusbId = 'I1'
+        fam1.FWifeId = 'I2'
+        fam1.FChildIds = ['I3']
+
+        individuals = {ind1.IId: ind1, ind2.IId: ind2, ind3.IId: ind3}
+        families = {fam1.FId: fam1}
+
+        self.assertFalse(run_US09(individuals, families), "Missed birth after father's death")
+
+    def test_birth_after_mother_death(self):
+        ind1 = Individual('I1')
+        ind1.IName = "John Doe"
+
+        ind2 = Individual('I2')
+        ind2.IName = "Jane Smith"
+        ind2.IDeath = datetime.strptime("10 JAN 1980", "%d %b %Y")
+
+        ind3 = Individual('I3')
+        ind3.IName = "Johnny Doe"
+        ind3.IBirth = datetime.strptime("10 JUN 1980", "%d %b %Y")
+
+        fam1 = Family('F1')
+        fam1.FHusbId = 'I1'
+        fam1.FWifeId = 'I2'
+        fam1.FChildIds = ['I3']
+
+        individuals = {ind1.IId: ind1, ind2.IId: ind2, ind3.IId: ind3}
+        families = {fam1.FId: fam1}
+
+        self.assertFalse(run_US09(individuals, families), "Missed birth after mother's death")
 
 
 class Test_US17(unittest.TestCase):
