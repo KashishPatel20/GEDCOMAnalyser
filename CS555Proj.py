@@ -16,7 +16,10 @@ class Individual:
 
     def is_alive(self) -> bool:
         return self.IDeath == 'NA'
-    
+        
+    def get_last_name(self):
+        return self.IName.split()[-1]
+        
     def get_age(self) -> int:
         if self.is_alive(): enddate = datetime.now()
         else: enddate = self.IDeath
@@ -174,6 +177,28 @@ def run_US15(families: dict[Family], output_file):
         if len(fam.FChildIds) >= 15:
             print(f"ANOMALY: FAMILY: US15: Family {key} has 15 or more children")
             output_file.write(f"ANOMALY: FAMILY: US15: Family {key} has 15 or more children")
+            
+# Male last names
+def run_US16(individuals: dict[str, Individual], families: dict[str, Family], output_file):
+    for fam_id in families:
+        family = families[fam_id]
+        male_last_names = set()
+        
+        if family.FHusbId in individuals:
+            husband = individuals[family.FHusbId]
+            if husband.IGen == 'M':
+                male_last_names.add(husband.get_last_name())
+        
+        for child_id in family.FChildIds:
+            if child_id in individuals:
+                child = individuals[child_id]
+                if child.IGen == 'M':
+                    male_last_names.add(child.get_last_name())
+        
+        if len(male_last_names) > 1:
+            print(f"ERROR: FAMILY: US16: Male members of family {fam_id} have different last names: {male_last_names}")
+            output_file.write(f"ERROR: FAMILY: US16: Male members of family {fam_id} have different last names: {male_last_names}\n")
+
 
 # No marriage to descendants
 def run_US17(families: dict[Family], output_file):
@@ -239,6 +264,27 @@ def run_US29(individuals: dict[Individual], output_file):
     output_file.write("US29: Deceased List\n")
     output_file.write(str(deceasedTable)+'\n')
 
+# List recent births
+def run_US35(individuals: dict[str, Individual], output_file):
+    today = datetime.now()
+    recent_births = []
+
+    for indiv_id in individuals:
+        individual = individuals[indiv_id]
+        if individual.IBirth and (today - individual.IBirth).days <= 30:
+            recent_births.append(individual)
+
+    if recent_births:
+        print("Recent Births (last 30 days):")
+        output_file.write("Recent Births (last 30 days):\n")
+        for person in recent_births:
+            print(f"ID: {person.IId}, Name: {person.IName}, Birth Date: {person.IBirth}")
+            output_file.write(f"ID: {person.IId}, Name: {person.IName}, Birth Date: {person.IBirth}\n")
+    else:
+        print("No recent births in the last 30 days.")
+        output_file.write("No recent births in the last 30 days.\n")
+
+
 # Add completed user stories here to implement into the main running code
 def run_all_user_stories(individuals: dict[Individual], families: dict[Family], output_file):
     run_US01(individuals, families, output_file)
@@ -250,10 +296,12 @@ def run_all_user_stories(individuals: dict[Individual], families: dict[Family], 
     run_US09(individuals, families, output_file)
     run_US10(individuals, families, output_file)
     run_US15(families, output_file)
+    run_US16(individuals, families, output_file)
     run_US17(families, output_file)
     run_US18(families, output_file)
     run_US25(individuals, families, output_file)
     run_US29(individuals, output_file)
+    run_US35(individuals, output_file)
 
 
 HANDLED_TAGS = ['INDI', 'NAME', 'SEX', 'BIRT', 'DEAT', 'FAMC', 'FAMS', 'FAM', 'MARR', 'HUSB', 'WIFE', 'CHIL', 'DIV', 'DATE']
