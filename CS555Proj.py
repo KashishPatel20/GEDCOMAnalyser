@@ -195,7 +195,7 @@ def run_US10(individuals: dict[Individual], families: dict[Family], output_file)
 
         if husb_age < 14:
             print(f"ANOMALY: US10: Individual {fam.FHusbId} was less than 14 years old when married")
-            output_file.write(f"ANOMALY: US10: Individual {fam.FHusbId} was less than 14 years old when married")
+            output_file.write(f"ANOMALY: US10: Individual {fam.FHusbId} was less than 14 years old when married\n")
 
         # Check wife age
         wife_age = fam.FMar.year - wife.IBirth.year
@@ -204,7 +204,24 @@ def run_US10(individuals: dict[Individual], families: dict[Family], output_file)
 
         if wife_age < 14:
             print(f"ANOMALY: US10: Individual {fam.FWifeId} was less than 14 years old when married")
-            output_file.write(f"ANOMALY: US10: Individual {fam.FWifeId} was less than 14 years old when married")
+            output_file.write(f"ANOMALY: US10: Individual {fam.FWifeId} was less than 14 years old when married\n")
+
+# Multiple births <= 5
+def run_US14(individuals: dict[Individual], families: dict[Family], output_file):
+    for key in families:
+        fam: Family = families[key]
+
+        dateCounter: dict[datetime] = {}
+        for childId in fam.FChildIds:
+            child: Individual = individuals[childId]
+            if child.IBirth not in dateCounter.keys(): dateCounter[child.IBirth] = 1
+            else: dateCounter[child.IBirth] += 1
+        
+        for date in dateCounter.keys():
+            if dateCounter[date] > 5:
+                dateStr = date.strftime("%Y-%m-%d")
+                print(f"ANOMALY: US14: Family {fam.FId} has more than 5 children born on date {dateStr}")
+                output_file.write(f"ANOMALY: US14: Family {fam.FId} has more than 5 children born on date {dateStr}\n")
 
 # Fewer than 15 siblings
 def run_US15(families: dict[Family], output_file):
@@ -302,6 +319,9 @@ def run_US29(individuals: dict[Individual], output_file):
 
 # List recent births
 def run_US35(individuals: dict[str, Individual], output_file):
+    print("\nUS35: Recent Births")
+    output_file.write("\nUS35: Recent Births\n")
+    
     today = datetime.now()
     recent_births = []
 
@@ -362,6 +382,7 @@ def run_all_user_stories(individuals: dict[Individual], families: dict[Family], 
     run_US08(individuals, families, output_file)
     run_US09(individuals, families, output_file)
     run_US10(individuals, families, output_file)
+    run_US14(individuals, families, output_file)
     run_US15(families, output_file)
     run_US16(individuals, families, output_file)
     run_US17(families, output_file)

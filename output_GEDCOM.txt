@@ -51,3 +51,6 @@ US29: Deceased List
 | I14 | Charles /Abelman/ |   M    | 1934-01-20 |  50 | 1984-01-28 |
 | I30 |  Yvette /Abelman/ |   F    | 1925-08-07 |  94 | 2019-09-13 |
 +-----+-------------------+--------+------------+-----+------------+
+
+US35: Recent Births
+No recent births in the last 30 days.
