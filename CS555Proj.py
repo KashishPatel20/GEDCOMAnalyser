@@ -340,6 +340,55 @@ def run_US35(individuals: dict[str, Individual], output_file):
         print("No recent births in the last 30 days.")
         output_file.write("No recent births in the last 30 days.\n")
 
+# List recent deaths
+def run_US36(individuals: dict[str, Individual], output_file):
+    print("\nUS36: Recent Deaths")
+    output_file.write("\nUS36: Recent Deaths\n")
+    today = datetime.now()
+    recent_deaths = []
+
+    for indiv_id in individuals:
+        individual = individuals[indiv_id]
+        if individual.IDeath != 'NA' and (today - individual.IDeath).days <= 30:
+            recent_deaths.append(individual)
+
+    if recent_deaths:
+        print("Recent Deaths (last 30 days):")
+        output_file.write("Recent Deaths (last 30 days):\n")
+        for person in recent_deaths:
+            print(f"ID: {person.IId}, Name: {person.IName}, Death Date: {person.IDeath}")
+            output_file.write(f"ID: {person.IId}, Name: {person.IName}, Death Date: {person.IDeath}\n")
+    else:
+        print("No recent deaths in the last 30 days.")
+        output_file.write("No recent deaths in the last 30 days.\n")
+
+# List upcoming birthdays
+def run_US38(individuals: dict[str, Individual], output_file):
+    print("\nUS38: Upcoming Birthdays")
+    output_file.write("\nUS38: Upcoming Birthdays\n")
+    today = datetime.now()
+    upcoming_birthdays = []
+
+    for indiv_id in individuals:
+        individual = individuals[indiv_id]
+        if individual.IBirth:
+            if individual.IBirth.month == today.month:
+                if individual.IBirth.day >= today.day and individual.IBirth.day <= today.day + 30:
+                    upcoming_birthdays.append(individual)
+            elif individual.IBirth.month == today.month + 1:
+                if individual.IBirth.day <= today.day + 30 - 31:
+                    upcoming_birthdays.append(individual)
+
+    if upcoming_birthdays:
+        print("Upcoming Birthdays (next 30 days):")
+        output_file.write("Upcoming Birthdays (next 30 days):\n")
+        for person in upcoming_birthdays:
+            print(f"ID: {person.IId}, Name: {person.IName}, Birth Date: {person.IBirth}")
+            output_file.write(f"ID: {person.IId}, Name: {person.IName}, Birth Date: {person.IBirth}\n")
+    else:
+        print("No upcoming birthdays in the next 30 days.")
+        output_file.write("No upcoming birthdays in the next 30 days.\n")
+
 #Reject illegitimate dates            
 def run_US42(individuals: dict[Individual], families: dict[Family], output_file):
     for IKey in individuals:
@@ -390,6 +439,8 @@ def run_all_user_stories(individuals: dict[Individual], families: dict[Family], 
     run_US25(individuals, families, output_file)
     run_US29(individuals, output_file)
     run_US35(individuals, output_file)
+    run_US36(individuals, output_file)
+    run_US38(individuals, output_file)
     run_US42(individuals, families, output_file)
 
 
