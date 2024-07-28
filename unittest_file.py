@@ -177,6 +177,33 @@ def run_US35(individuals: dict[Individual]):
 
     return recent_births
 
+# List all people who died in the last 30 days
+def run_US36(individuals: dict):
+    recent_deaths = []
+    current_date = datetime.now()
+    for key in individuals:
+        individual = individuals[key]
+        if individual.IDeath:
+            death_date = individual.IDeath
+            if isinstance(death_date, str):
+                death_date = datetime.strptime(death_date, "%d %b %Y")
+            if (current_date - death_date).days <= 30:
+                recent_deaths.append(individual)
+    return recent_deaths
+
+#List all living people whose birthdays occur in the next 30 days
+def run_US38(individuals: dict):
+    upcoming_birthdays = []
+    current_date = datetime.now()
+    for key in individuals:
+        individual = individuals[key]
+        if(individual.IDeath != 'NA'):
+            continue
+        if (individual.IBirth.month == current_date.month and individual.IBirth.day - current_date.day <= 30) or (individual.IBirth.month - current_date.month == 1 and individual.IBirth.day + (30 - current_date.day) <= 30):
+            upcoming_birthdays.append(individual)
+    return upcoming_birthdays
+
+
 # Reject illegitimate dates
 def run_US42(individuals: dict[Individual], families: dict[Family]):
     for IKey in individuals:
@@ -703,6 +730,88 @@ class Test_US35(unittest.TestCase):
         self.assertIn(ind1, recent_births, "Missed a recent birth")
         self.assertIn(ind3, recent_births, "Missed a recent birth")
         self.assertNotIn(ind2, recent_births, "Included a non-recent birth")
+
+class Test_US36(unittest.TestCase):
+    
+        def test_recent_deaths(self):
+            now = datetime.now()
+            ind1 = Individual('I1')
+            ind1.IName = "John Doe"
+            ind1.IDeath = now - timedelta(days=10)
+            ind2 = Individual('I2')
+            ind2.IName = "Jane Doe"
+            ind2.IDeath = now - timedelta(days=40)
+            ind3 = Individual('I3')
+            ind3.IName = "Johnny Doe"
+            ind3.IDeath = now - timedelta(days=20)
+            
+            individuals = {ind1.IId: ind1, ind2.IId: ind2, ind3.IId: ind3}
+    
+            recent_deaths = run_US36(individuals)
+            self.assertEqual(len(recent_deaths), 2, "Identified incorrect number of recent deaths")
+            self.assertIn(ind1, recent_deaths, "Missed a recent death")
+            self.assertIn(ind3, recent_deaths, "Missed a recent death")
+            self.assertNotIn(ind2, recent_deaths, "Included a non-recent death")
+
+class Test_US38(unittest.TestCase):
+    
+    def test_no_upcoming_birthdays(self):
+        indiv1 = Individual('I1')
+        indiv1.IName = 'Bradley Abelman'
+        indiv1.IBirth = datetime.strptime("11 OCT 2002", "%d %b %Y")
+
+        indiv2 = Individual('I2')
+        indiv2.IName = 'Jane Smith'
+        indiv2.IBirth = datetime.strptime("11 JAN 1985", "%d %b %Y")
+        
+        individuals = {indiv1.IId: indiv1, indiv2.IId: indiv2}
+
+        upcoming_birthdays = run_US38(individuals)
+        self.assertEqual(len(upcoming_birthdays), 0, "Identified incorrect number of upcoming birthdays")
+
+    def test_upcoming_birthday_this_year(self):
+        now = datetime.now()
+        indiv1 = Individual('I1')
+        indiv1.IName = 'Bradley Abelman'
+        indiv1.IBirth = (now + timedelta(days=10)).replace(year=now.year)
+
+        indiv2 = Individual('I2')
+        indiv2.IName = 'Jane Smith'
+        indiv2.IBirth = (now + timedelta(days=40)).replace(year=now.year)
+        
+        individuals = {indiv1.IId: indiv1, indiv2.IId: indiv2}
+
+        upcoming_birthdays = run_US38(individuals)
+        self.assertEqual(len(upcoming_birthdays), 1, "Identified incorrect number of upcoming birthdays")
+        self.assertIn(indiv1, upcoming_birthdays, "Missed an upcoming birthday")
+        self.assertNotIn(indiv2, upcoming_birthdays, "Included a non-upcoming birthday")
+
+    
+
+    def test_birthday_today(self):
+        now = datetime.now()
+        indiv1 = Individual('I1')
+        indiv1.IName = 'Bradley Abelman'
+        indiv1.IBirth = now
+        
+        individuals = {indiv1.IId: indiv1}
+
+        upcoming_birthdays = run_US38(individuals)
+        self.assertEqual(len(upcoming_birthdays), 1, "Identified incorrect number of upcoming birthdays")
+        self.assertIn(indiv1, upcoming_birthdays, "Missed an upcoming birthday")
+
+    def test_deceased_individual(self):
+        now = datetime.now()
+        indiv1 = Individual('I1')
+        indiv1.IName = 'Bradley Abelman'
+        indiv1.IBirth = (now + timedelta(days=10)).replace(year=now.year)
+        indiv1.IDeath = now - timedelta(days=100)
+        
+        individuals = {indiv1.IId: indiv1}
+
+        upcoming_birthdays = run_US38(individuals)
+        self.assertEqual(len(upcoming_birthdays), 0, "Incorrectly included deceased individual")
+
 
 class Test_US42(unittest.TestCase):
 
