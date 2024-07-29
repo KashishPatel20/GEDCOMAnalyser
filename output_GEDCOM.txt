@@ -54,3 +54,11 @@ US29: Deceased List
 
 US35: Recent Births
 No recent births in the last 30 days.
+
+US36: Recent Deaths
+No recent deaths in the last 30 days.
+
+US38: Upcoming Birthdays
+Upcoming Birthdays (next 30 days):
+ID: I6, Name: Diana /Scheiman/, Birth Date: 1934-08-13 00:00:00
+ID: I30, Name: Yvette /Abelman/, Birth Date: 1925-08-07 00:00:00

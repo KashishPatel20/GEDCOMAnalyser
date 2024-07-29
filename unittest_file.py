@@ -2,6 +2,7 @@ import itertools
 import unittest
 
 from datetime import datetime,timedelta
+from dateutil.relativedelta import relativedelta
 
 from CS555Proj import Individual, Family
 
@@ -48,6 +49,30 @@ def run_US09(individuals: dict[Individual], families: dict[Family]):
                             return False
     return True
 
+# Parents not too old
+def run_US12(individuals: dict[Individual], families: dict[Family]):
+    for key in families:
+        fam: Family = families[key]
+
+        if len(fam.FChildIds) == 0: continue
+
+        # Get parent birthdays
+        father_birthday = individuals[fam.FHusbId].IBirth
+        mother_birthday = individuals[fam.FWifeId].IBirth
+        
+        # Get youngest child's birthday
+        youngest_child_birhday = max([individuals[childId].IBirth for childId in fam.FChildIds])
+
+        # Check father age
+        if relativedelta(youngest_child_birhday, father_birthday).years >= 80:
+            return False
+
+        # Check mother age
+        if relativedelta(youngest_child_birhday, mother_birthday).years >= 60:
+            return False
+
+    return True
+    
 # Multiple births <= 5
 def run_US14(individuals: dict[Individual], families: dict[Family]):
     for key in families:
@@ -118,6 +143,23 @@ def run_US18(families: dict[Family]):
             return False
             
         elif fam2.FHusbId in fam1.FChildIds and fam2.FWifeId in fam1.FChildIds:
+            return False
+        
+    return True
+
+# Correct gender for role
+def run_US21(individuals: dict[Individual], families: dict[Family]):
+    for key in families:
+        fam: Family = families[key]
+        husb: Individual = individuals[fam.FHusbId]
+        wife: Individual = individuals[fam.FWifeId]
+        
+        # Check husband gender
+        if not husb.IGen == 'M':
+            return False
+
+        # Check wife gender
+        if not wife.IGen == 'F':
             return False
         
     return True
@@ -202,7 +244,6 @@ def run_US38(individuals: dict):
         if (individual.IBirth.month == current_date.month and individual.IBirth.day - current_date.day <= 30) or (individual.IBirth.month - current_date.month == 1 and individual.IBirth.day + (30 - current_date.day) <= 30):
             upcoming_birthdays.append(individual)
     return upcoming_birthdays
-
 
 # Reject illegitimate dates
 def run_US42(individuals: dict[Individual], families: dict[Family]):
@@ -328,6 +369,91 @@ class Test_US09(unittest.TestCase):
         families = {fam1.FId: fam1}
 
         self.assertFalse(run_US09(individuals, families), "Missed birth after mother's death")
+
+class Test_US12(unittest.TestCase):
+
+    def test_skip_no_children(self):
+        fam1 = Family('F1')
+        fam2 = Family('F2')
+
+        individuals = {}
+        families = {fam1.FId: fam1, fam2.FId: fam2}
+        self.assertTrue(run_US12(individuals, families), "Identified old parents when there were none")
+
+    def test_no_parents_too_old(self):
+        fam1 = Family('F1')
+        fam1.FHusbId = 'I1'
+        fam1.FWifeId = 'I2'
+        fam1.FChildIds = ['I3', 'I4', 'I5']
+
+        husb = Individual('I1')
+        husb.IBirth = datetime.strptime("1 JAN 2000", "%d %b %Y")
+
+        wife = Individual('I2')
+        wife.IBirth = datetime.strptime("1 JAN 2020", "%d %b %Y")
+
+        child1 = Individual('I3')
+        child1.IBirth = datetime.strptime("1 JAN 2070", "%d %b %Y")
+
+        child2 = Individual('I4')
+        child2.IBirth = datetime.strptime("1 JAN 2075", "%d %b %Y")
+
+        child3 = Individual('I5')
+        child3.IBirth = datetime.strptime("31 DEC 2079", "%d %b %Y")
+
+        individuals = {husb.IId: husb, wife.IId: wife, child1.IId: child1, child2.IId: child2, child3.IId: child3}
+        families = {fam1.FId: fam1}
+        self.assertTrue(run_US12(individuals, families), "Identified old parents when there were none")
+
+    def test_father_too_old(self):
+        fam1 = Family('F1')
+        fam1.FHusbId = 'I1'
+        fam1.FWifeId = 'I2'
+        fam1.FChildIds = ['I3', 'I4', 'I5']
+
+        husb = Individual('I1')
+        husb.IBirth = datetime.strptime("1 JAN 2000", "%d %b %Y")
+
+        wife = Individual('I2')
+        wife.IBirth = datetime.strptime("1 JAN 2025", "%d %b %Y")
+
+        child1 = Individual('I3')
+        child1.IBirth = datetime.strptime("1 JAN 2070", "%d %b %Y")
+
+        child2 = Individual('I4')
+        child2.IBirth = datetime.strptime("1 JAN 2075", "%d %b %Y")
+
+        child3 = Individual('I5')
+        child3.IBirth = datetime.strptime("1 JAN 2080", "%d %b %Y")
+
+        individuals = {husb.IId: husb, wife.IId: wife, child1.IId: child1, child2.IId: child2, child3.IId: child3}
+        families = {fam1.FId: fam1}
+        self.assertFalse(run_US12(individuals, families), "Missed too old father")
+
+    def test_mother_too_old(self):
+        fam1 = Family('F1')
+        fam1.FHusbId = 'I1'
+        fam1.FWifeId = 'I2'
+        fam1.FChildIds = ['I3', 'I4', 'I5']
+
+        husb = Individual('I1')
+        husb.IBirth = datetime.strptime("1 JAN 2000", "%d %b %Y")
+
+        wife = Individual('I2')
+        wife.IBirth = datetime.strptime("1 JAN 2000", "%d %b %Y")
+
+        child1 = Individual('I3')
+        child1.IBirth = datetime.strptime("1 JAN 2050", "%d %b %Y")
+
+        child2 = Individual('I4')
+        child2.IBirth = datetime.strptime("1 JAN 2055", "%d %b %Y")
+
+        child3 = Individual('I5')
+        child3.IBirth = datetime.strptime("1 JAN 2060", "%d %b %Y")
+
+        individuals = {husb.IId: husb, wife.IId: wife, child1.IId: child1, child2.IId: child2, child3.IId: child3}
+        families = {fam1.FId: fam1}
+        self.assertFalse(run_US12(individuals, families), "Missed too old mother")
 
 class Test_US14(unittest.TestCase):
 
@@ -587,6 +713,56 @@ class Test_US18(unittest.TestCase):
         families = {fam1.FId: fam1, fam2.FId: fam2}
         self.assertFalse(run_US18(families), "Missed marriage between siblings from family 2")
 
+class Test_US21(unittest.TestCase):
+
+    def test_no_wrong_genders(self):
+        fam1 = Family('F1')
+        fam1.FHusbId = 'I1'
+        fam1.FWifeId = 'I2'
+
+        husb = Individual('I1')
+        husb.IGen = 'M'
+
+        wife = Individual('I2')
+        wife.IGen = 'F'
+
+        individuals = {husb.IId: husb, wife.IId: wife}
+
+        families = {fam1.FId: fam1}
+        self.assertTrue(run_US21(individuals, families), "Identified wrong gender when there was none")
+
+    def test_husband_wrong_genders(self):
+        fam1 = Family('F1')
+        fam1.FHusbId = 'I1'
+        fam1.FWifeId = 'I2'
+
+        husb = Individual('I1')
+        husb.IGen = 'F'
+
+        wife = Individual('I2')
+        wife.IGen = 'F'
+
+        individuals = {husb.IId: husb, wife.IId: wife}
+
+        families = {fam1.FId: fam1}
+        self.assertFalse(run_US21(individuals, families), "Missed husband wrong gender")
+
+    def test_wife_wrong_genders(self):
+        fam1 = Family('F1')
+        fam1.FHusbId = 'I1'
+        fam1.FWifeId = 'I2'
+
+        husb = Individual('I1')
+        husb.IGen = 'M'
+
+        wife = Individual('I2')
+        wife.IGen = 'M'
+
+        individuals = {husb.IId: husb, wife.IId: wife}
+
+        families = {fam1.FId: fam1}
+        self.assertFalse(run_US21(individuals, families), "Missed wife wrong gender")
+
 class Test_US22(unittest.TestCase):
 
     def test_no_duplicates(self):
@@ -811,7 +987,6 @@ class Test_US38(unittest.TestCase):
 
         upcoming_birthdays = run_US38(individuals)
         self.assertEqual(len(upcoming_birthdays), 0, "Incorrectly included deceased individual")
-
 
 class Test_US42(unittest.TestCase):
 

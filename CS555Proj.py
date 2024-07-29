@@ -3,6 +3,7 @@ import itertools
 from pathlib import Path
 from prettytable import PrettyTable
 from datetime import datetime,timedelta
+from dateutil.relativedelta import relativedelta
 
 class Individual:
     def __init__(self, id: str):
@@ -103,8 +104,8 @@ def run_US05(individuals: dict[Individual], families: dict[Family], output_file)
 def run_US06(individuals: dict[Individual], families: dict[Family], output_file):
     for FKey in families:
         fam: Family = families[FKey]
-        husbDeath = indivDeathHelper(individuals, fam.FHusbId)
-        wifeDeath = indivDeathHelper(individuals, fam.FWifeId)
+        husbDeath = individuals[fam.FHusbId].IDeath
+        wifeDeath = individuals[fam.FWifeId].IDeath
         if(husbDeath != 'NA' and wifeDeath != 'NA'):
             if(fam.FDiv > husbDeath):
                 print(f"ERROR: US06: Family {fam.FId} has Divorce Date {fam.FDiv} AFTER Death Date {husbDeath} of Husband")
@@ -112,12 +113,6 @@ def run_US06(individuals: dict[Individual], families: dict[Family], output_file)
             elif(fam.FDiv > wifeDeath):
                 print(f"ERROR: US06: Family {fam.FId} has Divorce Date {fam.FDiv} AFTER Death Date {wifeDeath} of Wife")
                 output_file.write(f"ERROR: US06: Family {fam.FId} has Divorce Date {fam.FDiv} AFTER Death Date {wifeDeath} of Wife\n")
-# given an ID, returns the death date of that individual          
-def indivDeathHelper(individuals: dict[Individual], iid):
-    for IKey in individuals:
-        indiv: Individual = individuals[IKey]
-        if(indiv.IId == iid):
-            return indiv.IDeath
 
 #Less than 150 years old     
 def run_US07(individuals: dict[Individual], output_file):
@@ -156,7 +151,7 @@ def run_US08(individuals: dict[str, Individual], families: dict[str, Family], ou
                         print(f"ERROR: FAMILY: US08: Child {child.IId} ({child.IBirth}) born more than 9 months after parents' divorce ({family.FDiv})")
                         output_file.write(f"ERROR: FAMILY: US08: Child {child.IId} ({child.IBirth}) born more than 9 months after parents' divorce ({family.FDiv})\n")
 
-
+# Birth before death of parents
 def run_US09(individuals: dict[str, Individual], families: dict[str, Family], output_file):
     for fam_id in families:
         family = families[fam_id]
@@ -179,7 +174,6 @@ def run_US09(individuals: dict[str, Individual], families: dict[str, Family], ou
                         if child.IBirth > father_deadline:
                             print(f"ERROR: FAMILY: US09: Child {child.IId} ({child.IBirth}) born more than 9 months after father's ({husband.IId}) death ({husband.IDeath})")
                             output_file.write(f"ERROR: FAMILY: US09: Child {child.IId} ({child.IBirth}) born more than 9 months after father's ({husband.IId}) death ({husband.IDeath})\n")
-
 
 # Marriage after 14
 def run_US10(individuals: dict[Individual], families: dict[Family], output_file):
@@ -205,6 +199,30 @@ def run_US10(individuals: dict[Individual], families: dict[Family], output_file)
         if wife_age < 14:
             print(f"ANOMALY: US10: Individual {fam.FWifeId} was less than 14 years old when married")
             output_file.write(f"ANOMALY: US10: Individual {fam.FWifeId} was less than 14 years old when married\n")
+
+# Parents not too old
+def run_US12(individuals: dict[Individual], families: dict[Family], output_file):
+    for key in families:
+        fam: Family = families[key]
+
+        if len(fam.FChildIds) == 0: continue
+
+        # Get parent birthdays
+        father_birthday = individuals[fam.FHusbId].IBirth
+        mother_birthday = individuals[fam.FWifeId].IBirth
+        
+        # Get youngest child's birthday
+        youngest_child_birhday = max([individuals[childId].IBirth for childId in fam.FChildIds])
+
+        # Check father age
+        if relativedelta(youngest_child_birhday, father_birthday).years >= 80:
+            print(f"ANOMALY: US12: Individual {fam.FHusbId} had a child when he was 80 years or older")
+            output_file.write(f"ANOMALY: US12: Individual {fam.FHusbId} had a child when he was 80 years or older\n")
+
+        # Check mother age
+        if relativedelta(youngest_child_birhday, mother_birthday).years >= 60:
+            print(f"ANOMALY: US12: Individual {fam.FWifeId} had a child when she was 60 years or older")
+            output_file.write(f"ANOMALY: US12: Individual {fam.FWifeId} had a child when she was 60 years or older\n")
 
 # Multiple births <= 5
 def run_US14(individuals: dict[Individual], families: dict[Family], output_file):
@@ -252,7 +270,6 @@ def run_US16(individuals: dict[str, Individual], families: dict[str, Family], ou
             print(f"ERROR: FAMILY: US16: Male members of family {fam_id} have different last names: {male_last_names}")
             output_file.write(f"ERROR: FAMILY: US16: Male members of family {fam_id} have different last names: {male_last_names}\n")
 
-
 # No marriage to descendants
 def run_US17(families: dict[Family], output_file):
     key_pairs = itertools.combinations(families.keys(), 2)
@@ -289,6 +306,23 @@ def run_US18(families: dict[Family], output_file):
         elif fam2.FHusbId in fam1.FChildIds and fam2.FWifeId in fam1.FChildIds:
             print(f"ERROR: FAMILY: US17: Individual {fam1.FHusbId} married sister {fam1.FWifeId}")
             output_file.write(f"ERROR: FAMILY: US17: Individual {fam1.FHusbId} married sister {fam1.FWifeId}\n")
+
+# Correct gender for role
+def run_US21(individuals: dict[Individual], families: dict[Family], output_file):
+    for key in families:
+        fam: Family = families[key]
+        husb: Individual = individuals[fam.FHusbId]
+        wife: Individual = individuals[fam.FWifeId]
+        
+        # Check husband gender
+        if not husb.IGen == 'M':
+            print(f"ERROR: US21: Individual {fam.FHusbId} had the wrong gender")
+            output_file.write(f"ERROR: US21: Individual {fam.FHusbId} had the wrong gender\n")
+
+        # Check wife gender
+        if not wife.IGen == 'F':
+            print(f"ERROR: US21: Individual {fam.FWifeId} had the wrong gender")
+            output_file.write(f"ERROR: US21: Individual {fam.FWifeId} had the wrong gender\n")
 
 # Unique names in families
 def run_US25(individuals: dict[Individual], families: dict[Family], output_file):
@@ -431,11 +465,13 @@ def run_all_user_stories(individuals: dict[Individual], families: dict[Family], 
     run_US08(individuals, families, output_file)
     run_US09(individuals, families, output_file)
     run_US10(individuals, families, output_file)
+    run_US12(individuals, families, output_file)
     run_US14(individuals, families, output_file)
     run_US15(families, output_file)
     run_US16(individuals, families, output_file)
     run_US17(families, output_file)
     run_US18(families, output_file)
+    run_US21(individuals, families, output_file)
     run_US25(individuals, families, output_file)
     run_US29(individuals, output_file)
     run_US35(individuals, output_file)
