@@ -351,6 +351,34 @@ def run_US29(individuals: dict[Individual], output_file):
     output_file.write("US29: Deceased List\n")
     output_file.write(str(deceasedTable)+'\n')
 
+# List living married
+def run_US30(individuals: dict[Individual], output_file):
+    livingMarried = PrettyTable()
+    livingMarried.field_names = ["ID", "Name", "Gender", "Birthday", "Age", "Child", "Spouse"]
+    for key in individuals:
+        indiv: Individual = individuals[key]
+        if indiv.is_alive() and indiv.ISpouse != "NA":
+            livingMarried.add_row([indiv.IId, indiv.IName, indiv.IGen, indiv.IBirth.strftime("%Y-%m-%d"), indiv.get_age(), indiv.IChild, indiv.ISpouse])
+    
+    print("\nUS30: Living Married List")
+    print(livingMarried)
+    output_file.write("US30: Living Married List\n")
+    output_file.write(str(livingMarried)+'\n')
+
+# List living single
+def run_US31(individuals: dict[Individual], output_file):
+    livingSingle = PrettyTable()
+    livingSingle.field_names = ["ID", "Name", "Gender", "Birthday", "Age", "Child", "Spouse"]
+    for key in individuals:
+        indiv: Individual = individuals[key]
+        if indiv.is_alive() and indiv.ISpouse == "NA" and indiv.get_age() > 30:
+            livingSingle.add_row([indiv.IId, indiv.IName, indiv.IGen, indiv.IBirth.strftime("%Y-%m-%d"), indiv.get_age(), indiv.IChild, indiv.ISpouse])
+    
+    print("\nUS31: Living Single List")
+    print(livingSingle)
+    output_file.write("US31: Living Single List\n")
+    output_file.write(str(livingSingle)+'\n')
+
 # List recent births
 def run_US35(individuals: dict[str, Individual], output_file):
     print("\nUS35: Recent Births")
@@ -474,6 +502,8 @@ def run_all_user_stories(individuals: dict[Individual], families: dict[Family], 
     run_US21(individuals, families, output_file)
     run_US25(individuals, families, output_file)
     run_US29(individuals, output_file)
+    run_US30(individuals, output_file)
+    run_US31(individuals, output_file)
     run_US35(individuals, output_file)
     run_US36(individuals, output_file)
     run_US38(individuals, output_file)
