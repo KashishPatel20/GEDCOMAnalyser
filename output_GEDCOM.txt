@@ -41,3 +41,24 @@
 | F10 | 1985-06-01 |     NA     |    I22     |    Craig /Zim/    |   I21   |  Erika /Abelman/  |    ['I27', 'I28', 'I29']    |
 +-----+------------+------------+------------+-------------------+---------+-------------------+-----------------------------+
 
+US29: Deceased List
++-----+-------------------+--------+------------+-----+------------+
+|  ID |        Name       | Gender |  Birthday  | Age |   Death    |
++-----+-------------------+--------+------------+-----+------------+
+|  I5 | William /Abelman/ |   M    | 1928-10-29 |  88 | 2016-10-31 |
+|  I7 | Lawrence /Alaimo/ |   M    | 1946-03-08 |  66 | 2012-06-07 |
+| I11 |  Jack /Scheiman/  |   M    | 1949-01-08 |  71 | 2020-07-27 |
+| I14 | Charles /Abelman/ |   M    | 1934-01-20 |  50 | 1984-01-28 |
+| I30 |  Yvette /Abelman/ |   F    | 1925-08-07 |  94 | 2019-09-13 |
++-----+-------------------+--------+------------+-----+------------+
+
+US35: Recent Births
+No recent births in the last 30 days.
+
+US36: Recent Deaths
+No recent deaths in the last 30 days.
+
+US38: Upcoming Birthdays
+Upcoming Birthdays (next 30 days):
+ID: I6, Name: Diana /Scheiman/, Birth Date: 1934-08-13 00:00:00
+ID: I30, Name: Yvette /Abelman/, Birth Date: 1925-08-07 00:00:00

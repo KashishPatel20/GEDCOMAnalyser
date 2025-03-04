@@ -2,7 +2,8 @@ import itertools
 
 from pathlib import Path
 from prettytable import PrettyTable
-from datetime import datetime
+from datetime import datetime,timedelta
+from dateutil.relativedelta import relativedelta
 
 class Individual:
     def __init__(self, id: str):
@@ -99,6 +100,36 @@ def run_US05(individuals: dict[Individual], families: dict[Family], output_file)
                         print(f"ANOMALY: US05: Individual {indiv.IId} has Marriage Date {fam.FMar} AFTER Death Date {indiv.IDeath}")
                         output_file.write(f"ANOMALY: US05: Individual {indiv.IId} has Marriage Date {fam.FMar} AFTER Death Date {indiv.IDeath}\n")
 
+# Divorce before death
+def run_US06(individuals: dict[Individual], families: dict[Family], output_file):
+    for FKey in families:
+        fam: Family = families[FKey]
+        husbDeath = individuals[fam.FHusbId].IDeath
+        wifeDeath = individuals[fam.FWifeId].IDeath
+        if(husbDeath != 'NA' and wifeDeath != 'NA'):
+            if(fam.FDiv > husbDeath):
+                print(f"ERROR: US06: Family {fam.FId} has Divorce Date {fam.FDiv} AFTER Death Date {husbDeath} of Husband")
+                output_file.write(f"ERROR: US06: Family {fam.FId} has Divorce Date {fam.FDiv} AFTER Death Date {husbDeath} of Husband\n")
+            elif(fam.FDiv > wifeDeath):
+                print(f"ERROR: US06: Family {fam.FId} has Divorce Date {fam.FDiv} AFTER Death Date {wifeDeath} of Wife")
+                output_file.write(f"ERROR: US06: Family {fam.FId} has Divorce Date {fam.FDiv} AFTER Death Date {wifeDeath} of Wife\n")
+
+#Less than 150 years old     
+def run_US07(individuals: dict[Individual], output_file):
+    for IKey in individuals:
+        indiv: Individual = individuals[IKey]
+        plus = indiv.IBirth + timedelta(days=150*365) #approx 150yrs
+        plusShift = (abs((plus - datetime.today()).days)/365)
+        if(plusShift > 150): #current date < 150 years after birth birth date
+            print(f"ANOMALY: US07: Individual {indiv.IId} has an age of {plusShift}")
+            output_file.write(f"ANOMALY: US07: Individual {indiv.IId} has an age of {plusShift}\n")
+        else: 
+            if(indiv.IDeath != 'NA'):
+                yrsAlive = (abs((indiv.IDeath - indiv.IBirth).days)/365)
+                if(yrsAlive > 150): #death date < 150 years after birth date
+                    print(f"ANOMALY: US07: Individual {indiv.IId} had an age of {yrsAlive} when alive")
+                    output_file.write(f"ANOMALY: US07: Individual {indiv.IId} had an age of {yrsAlive} when alive\n")
+
 # Birth before marriage of parents and not more than 9 months after divorce
 def run_US08(individuals: dict[str, Individual], families: dict[str, Family], output_file):
     for fam_id in families:
@@ -120,7 +151,7 @@ def run_US08(individuals: dict[str, Individual], families: dict[str, Family], ou
                         print(f"ERROR: FAMILY: US08: Child {child.IId} ({child.IBirth}) born more than 9 months after parents' divorce ({family.FDiv})")
                         output_file.write(f"ERROR: FAMILY: US08: Child {child.IId} ({child.IBirth}) born more than 9 months after parents' divorce ({family.FDiv})\n")
 
-
+# Birth before death of parents
 def run_US09(individuals: dict[str, Individual], families: dict[str, Family], output_file):
     for fam_id in families:
         family = families[fam_id]
@@ -144,7 +175,6 @@ def run_US09(individuals: dict[str, Individual], families: dict[str, Family], ou
                             print(f"ERROR: FAMILY: US09: Child {child.IId} ({child.IBirth}) born more than 9 months after father's ({husband.IId}) death ({husband.IDeath})")
                             output_file.write(f"ERROR: FAMILY: US09: Child {child.IId} ({child.IBirth}) born more than 9 months after father's ({husband.IId}) death ({husband.IDeath})\n")
 
-
 # Marriage after 14
 def run_US10(individuals: dict[Individual], families: dict[Family], output_file):
     for key in families:
@@ -159,7 +189,7 @@ def run_US10(individuals: dict[Individual], families: dict[Family], output_file)
 
         if husb_age < 14:
             print(f"ANOMALY: US10: Individual {fam.FHusbId} was less than 14 years old when married")
-            output_file.write(f"ANOMALY: US10: Individual {fam.FHusbId} was less than 14 years old when married")
+            output_file.write(f"ANOMALY: US10: Individual {fam.FHusbId} was less than 14 years old when married\n")
 
         # Check wife age
         wife_age = fam.FMar.year - wife.IBirth.year
@@ -168,7 +198,48 @@ def run_US10(individuals: dict[Individual], families: dict[Family], output_file)
 
         if wife_age < 14:
             print(f"ANOMALY: US10: Individual {fam.FWifeId} was less than 14 years old when married")
-            output_file.write(f"ANOMALY: US10: Individual {fam.FWifeId} was less than 14 years old when married")
+            output_file.write(f"ANOMALY: US10: Individual {fam.FWifeId} was less than 14 years old when married\n")
+
+# Parents not too old
+def run_US12(individuals: dict[Individual], families: dict[Family], output_file):
+    for key in families:
+        fam: Family = families[key]
+
+        if len(fam.FChildIds) == 0: continue
+
+        # Get parent birthdays
+        father_birthday = individuals[fam.FHusbId].IBirth
+        mother_birthday = individuals[fam.FWifeId].IBirth
+        
+        # Get youngest child's birthday
+        youngest_child_birhday = max([individuals[childId].IBirth for childId in fam.FChildIds])
+
+        # Check father age
+        if relativedelta(youngest_child_birhday, father_birthday).years >= 80:
+            print(f"ANOMALY: US12: Individual {fam.FHusbId} had a child when he was 80 years or older")
+            output_file.write(f"ANOMALY: US12: Individual {fam.FHusbId} had a child when he was 80 years or older\n")
+
+        # Check mother age
+        if relativedelta(youngest_child_birhday, mother_birthday).years >= 60:
+            print(f"ANOMALY: US12: Individual {fam.FWifeId} had a child when she was 60 years or older")
+            output_file.write(f"ANOMALY: US12: Individual {fam.FWifeId} had a child when she was 60 years or older\n")
+
+# Multiple births <= 5
+def run_US14(individuals: dict[Individual], families: dict[Family], output_file):
+    for key in families:
+        fam: Family = families[key]
+
+        dateCounter: dict[datetime] = {}
+        for childId in fam.FChildIds:
+            child: Individual = individuals[childId]
+            if child.IBirth not in dateCounter.keys(): dateCounter[child.IBirth] = 1
+            else: dateCounter[child.IBirth] += 1
+        
+        for date in dateCounter.keys():
+            if dateCounter[date] > 5:
+                dateStr = date.strftime("%Y-%m-%d")
+                print(f"ANOMALY: US14: Family {fam.FId} has more than 5 children born on date {dateStr}")
+                output_file.write(f"ANOMALY: US14: Family {fam.FId} has more than 5 children born on date {dateStr}\n")
 
 # Fewer than 15 siblings
 def run_US15(families: dict[Family], output_file):
@@ -198,7 +269,6 @@ def run_US16(individuals: dict[str, Individual], families: dict[str, Family], ou
         if len(male_last_names) > 1:
             print(f"ERROR: FAMILY: US16: Male members of family {fam_id} have different last names: {male_last_names}")
             output_file.write(f"ERROR: FAMILY: US16: Male members of family {fam_id} have different last names: {male_last_names}\n")
-
 
 # No marriage to descendants
 def run_US17(families: dict[Family], output_file):
@@ -237,6 +307,23 @@ def run_US18(families: dict[Family], output_file):
             print(f"ERROR: FAMILY: US17: Individual {fam1.FHusbId} married sister {fam1.FWifeId}")
             output_file.write(f"ERROR: FAMILY: US17: Individual {fam1.FHusbId} married sister {fam1.FWifeId}\n")
 
+# Correct gender for role
+def run_US21(individuals: dict[Individual], families: dict[Family], output_file):
+    for key in families:
+        fam: Family = families[key]
+        husb: Individual = individuals[fam.FHusbId]
+        wife: Individual = individuals[fam.FWifeId]
+        
+        # Check husband gender
+        if not husb.IGen == 'M':
+            print(f"ERROR: US21: Individual {fam.FHusbId} had the wrong gender")
+            output_file.write(f"ERROR: US21: Individual {fam.FHusbId} had the wrong gender\n")
+
+        # Check wife gender
+        if not wife.IGen == 'F':
+            print(f"ERROR: US21: Individual {fam.FWifeId} had the wrong gender")
+            output_file.write(f"ERROR: US21: Individual {fam.FWifeId} had the wrong gender\n")
+
 # Unique names in families
 def run_US25(individuals: dict[Individual], families: dict[Family], output_file):
     for key in families:
@@ -266,6 +353,9 @@ def run_US29(individuals: dict[Individual], output_file):
 
 # List recent births
 def run_US35(individuals: dict[str, Individual], output_file):
+    print("\nUS35: Recent Births")
+    output_file.write("\nUS35: Recent Births\n")
+    
     today = datetime.now()
     recent_births = []
 
@@ -284,6 +374,84 @@ def run_US35(individuals: dict[str, Individual], output_file):
         print("No recent births in the last 30 days.")
         output_file.write("No recent births in the last 30 days.\n")
 
+# List recent deaths
+def run_US36(individuals: dict[str, Individual], output_file):
+    print("\nUS36: Recent Deaths")
+    output_file.write("\nUS36: Recent Deaths\n")
+    today = datetime.now()
+    recent_deaths = []
+
+    for indiv_id in individuals:
+        individual = individuals[indiv_id]
+        if individual.IDeath != 'NA' and (today - individual.IDeath).days <= 30:
+            recent_deaths.append(individual)
+
+    if recent_deaths:
+        print("Recent Deaths (last 30 days):")
+        output_file.write("Recent Deaths (last 30 days):\n")
+        for person in recent_deaths:
+            print(f"ID: {person.IId}, Name: {person.IName}, Death Date: {person.IDeath}")
+            output_file.write(f"ID: {person.IId}, Name: {person.IName}, Death Date: {person.IDeath}\n")
+    else:
+        print("No recent deaths in the last 30 days.")
+        output_file.write("No recent deaths in the last 30 days.\n")
+
+# List upcoming birthdays
+def run_US38(individuals: dict[str, Individual], output_file):
+    print("\nUS38: Upcoming Birthdays")
+    output_file.write("\nUS38: Upcoming Birthdays\n")
+    today = datetime.now()
+    upcoming_birthdays = []
+
+    for indiv_id in individuals:
+        individual = individuals[indiv_id]
+        if individual.IBirth:
+            if individual.IBirth.month == today.month:
+                if individual.IBirth.day >= today.day and individual.IBirth.day <= today.day + 30:
+                    upcoming_birthdays.append(individual)
+            elif individual.IBirth.month == today.month + 1:
+                if individual.IBirth.day <= today.day + 30 - 31:
+                    upcoming_birthdays.append(individual)
+
+    if upcoming_birthdays:
+        print("Upcoming Birthdays (next 30 days):")
+        output_file.write("Upcoming Birthdays (next 30 days):\n")
+        for person in upcoming_birthdays:
+            print(f"ID: {person.IId}, Name: {person.IName}, Birth Date: {person.IBirth}")
+            output_file.write(f"ID: {person.IId}, Name: {person.IName}, Birth Date: {person.IBirth}\n")
+    else:
+        print("No upcoming birthdays in the next 30 days.")
+        output_file.write("No upcoming birthdays in the next 30 days.\n")
+
+#Reject illegitimate dates            
+def run_US42(individuals: dict[Individual], families: dict[Family], output_file):
+    for IKey in individuals:
+        indiv: Individual = individuals[IKey]
+        try:
+            datetime.date(indiv.IBirth)
+        except Exception:
+            print(f"ANOMALY: US42: Individual {indiv.IId} had an invalid date of {indiv.IBirth} for Birth Date")
+            output_file.write(f"ANOMALY: US42: Individual {indiv.IId} had an invalid date of {indiv.IBirth} for Birth Date\n")
+        if(indiv.IDeath != 'NA'):
+            try:
+                datetime.date(indiv.IDeath)
+            except Exception:
+                print(f"ANOMALY: US42: Individual {indiv.IId} had an invalid date of {indiv.IDeath} for Death Date")
+                output_file.write(f"ANOMALY: US42: Individual {indiv.IId} had an invalid date of {indiv.IDeath} for Death Date\n")
+    for FKey in families:
+        fam: Family = families[FKey]
+        if(fam.FMar != 'NA'):
+            try:
+                datetime.date(fam.FMar)
+            except Exception:
+                print(f"ANOMALY: US42: Family {fam.FId} had an invalid date of {fam.FMar} for Marriage Date")
+                output_file.write(f"ANOMALY: US42: Family {fam.FId} had an invalid date of {fam.FMar} for Marriage Date\n")
+        if(fam.FDiv != 'NA'):
+            try:
+                datetime.date(fam.FDiv)
+            except Exception:
+                print(f"ANOMALY: US42: Family {fam.FId} had an invalid date of {fam.FDiv} for Divorce Date")
+                output_file.write(f"ANOMALY: US42: Family {fam.FId} had an invalid date of {fam.FDiv} for Divorce Date\n")
 
 # Add completed user stories here to implement into the main running code
 def run_all_user_stories(individuals: dict[Individual], families: dict[Family], output_file):
@@ -292,16 +460,24 @@ def run_all_user_stories(individuals: dict[Individual], families: dict[Family], 
     run_US03(individuals, output_file)
     run_US04(families, output_file)
     run_US05(individuals, families, output_file)
+    run_US06(individuals, families, output_file)
+    run_US07(individuals, output_file)
     run_US08(individuals, families, output_file)
     run_US09(individuals, families, output_file)
     run_US10(individuals, families, output_file)
+    run_US12(individuals, families, output_file)
+    run_US14(individuals, families, output_file)
     run_US15(families, output_file)
     run_US16(individuals, families, output_file)
     run_US17(families, output_file)
     run_US18(families, output_file)
+    run_US21(individuals, families, output_file)
     run_US25(individuals, families, output_file)
     run_US29(individuals, output_file)
     run_US35(individuals, output_file)
+    run_US36(individuals, output_file)
+    run_US38(individuals, output_file)
+    run_US42(individuals, families, output_file)
 
 
 HANDLED_TAGS = ['INDI', 'NAME', 'SEX', 'BIRT', 'DEAT', 'FAMC', 'FAMS', 'FAM', 'MARR', 'HUSB', 'WIFE', 'CHIL', 'DIV', 'DATE']
